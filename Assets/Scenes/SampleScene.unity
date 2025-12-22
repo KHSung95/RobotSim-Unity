@@ -214,7 +214,7 @@ MeshCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 5
-  m_Convex: 0
+  m_Convex: 1
   m_CookingOptions: 30
   m_Mesh: {fileID: 0}
 --- !u!1 &26461500
@@ -295,7 +295,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _rigidbody: {fileID: 26461502}
   DisplayInertiaGizmo: 0
-  rigidbodyDataSource: 0
+  rigidbodyDataSource: 1
   Mass: 4
   CenterOfMass: {x: -0, y: 0, z: 0}
   InertiaTensor: {x: 0.0044333315, y: 0.0072000003, z: 0.0044333315}
@@ -728,7 +728,7 @@ MeshCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 5
-  m_Convex: 0
+  m_Convex: 1
   m_CookingOptions: 30
   m_Mesh: {fileID: 0}
 --- !u!1 &128627016
@@ -958,7 +958,7 @@ MeshCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 5
-  m_Convex: 0
+  m_Convex: 1
   m_CookingOptions: 30
   m_Mesh: {fileID: 0}
 --- !u!1 &205339932
@@ -1051,6 +1051,63 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 46398bc5d6905ad429a6d2d973afe002, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!1001 &226365494
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 8874694381415454596, guid: 4cf94b0ba292ddf4daa2a786ed87bd1b, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0.856
+      objectReference: {fileID: 0}
+    - target: {fileID: 8874694381415454596, guid: 4cf94b0ba292ddf4daa2a786ed87bd1b, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: -0.049
+      objectReference: {fileID: 0}
+    - target: {fileID: 8874694381415454596, guid: 4cf94b0ba292ddf4daa2a786ed87bd1b, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0.083
+      objectReference: {fileID: 0}
+    - target: {fileID: 8874694381415454596, guid: 4cf94b0ba292ddf4daa2a786ed87bd1b, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 0.7071068
+      objectReference: {fileID: 0}
+    - target: {fileID: 8874694381415454596, guid: 4cf94b0ba292ddf4daa2a786ed87bd1b, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8874694381415454596, guid: 4cf94b0ba292ddf4daa2a786ed87bd1b, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0.7071068
+      objectReference: {fileID: 0}
+    - target: {fileID: 8874694381415454596, guid: 4cf94b0ba292ddf4daa2a786ed87bd1b, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8874694381415454596, guid: 4cf94b0ba292ddf4daa2a786ed87bd1b, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8874694381415454596, guid: 4cf94b0ba292ddf4daa2a786ed87bd1b, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 90
+      objectReference: {fileID: 0}
+    - target: {fileID: 8874694381415454596, guid: 4cf94b0ba292ddf4daa2a786ed87bd1b, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 9187749353366381976, guid: 4cf94b0ba292ddf4daa2a786ed87bd1b, type: 3}
+      propertyPath: m_Name
+      value: door
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 4cf94b0ba292ddf4daa2a786ed87bd1b, type: 3}
 --- !u!1 &242406304
 GameObject:
   m_ObjectHideFlags: 0
@@ -1426,7 +1483,7 @@ MeshCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 5
-  m_Convex: 0
+  m_Convex: 1
   m_CookingOptions: 30
   m_Mesh: {fileID: 0}
 --- !u!1 &420564326
@@ -2175,7 +2232,7 @@ MeshCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 5
-  m_Convex: 0
+  m_Convex: 1
   m_CookingOptions: 30
   m_Mesh: {fileID: 0}
 --- !u!1 &664470589
@@ -2379,7 +2436,7 @@ HingeJoint:
   m_Anchor: {x: 0, y: 0, z: 0}
   m_Axis: {x: -0, y: 1, z: 0}
   m_AutoConfigureConnectedAnchor: 1
-  m_ConnectedAnchor: {x: -0.000000014901165, y: 0.13330008, z: -0.39220008}
+  m_ConnectedAnchor: {x: 1.7763573e-15, y: 0.13330008, z: -0.39220008}
   serializedVersion: 2
   m_UseSpring: 0
   m_Spring:
@@ -2436,7 +2493,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _rigidbody: {fileID: 692614532}
   DisplayInertiaGizmo: 0
-  rigidbodyDataSource: 0
+  rigidbodyDataSource: 1
   Mass: 1.219
   CenterOfMass: {x: -0, y: 0, z: 0}
   InertiaTensor: {x: 0.002559899, y: 0.0021942, z: 0.002559899}
@@ -2742,7 +2799,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _rigidbody: {fileID: 737223738}
   DisplayInertiaGizmo: 0
-  rigidbodyDataSource: 0
+  rigidbodyDataSource: 1
   Mass: 2.275
   CenterOfMass: {x: -0, y: 0.007, z: -0.1961}
   InertiaTensor: {x: 0.031209353, y: 0.004095, z: 0.031209353}
@@ -3576,7 +3633,7 @@ MeshCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 5
-  m_Convex: 0
+  m_Convex: 1
   m_CookingOptions: 30
   m_Mesh: {fileID: 0}
 --- !u!1 &1199633096
@@ -3719,7 +3776,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _rigidbody: {fileID: 1199633103}
   DisplayInertiaGizmo: 0
-  rigidbodyDataSource: 0
+  rigidbodyDataSource: 1
   Mass: 0.1879
   CenterOfMass: {x: -0, y: -0.0229, z: 0}
   InertiaTensor: {x: 0.00009890409, y: 0.00013211719, z: 0.00009890409}
@@ -3883,7 +3940,7 @@ MeshCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 5
-  m_Convex: 0
+  m_Convex: 1
   m_CookingOptions: 30
   m_Mesh: {fileID: 0}
 --- !u!1 &1321280801
@@ -4509,7 +4566,7 @@ HingeJoint:
   m_Anchor: {x: 0, y: 0, z: 0}
   m_Axis: {x: -0, y: 1, z: 0}
   m_AutoConfigureConnectedAnchor: 1
-  m_ConnectedAnchor: {x: 0.099700086, y: 0.00000008940697, z: 0}
+  m_ConnectedAnchor: {x: 0.09970008, y: 0.00000008940697, z: 0}
   serializedVersion: 2
   m_UseSpring: 0
   m_Spring:
@@ -4566,7 +4623,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _rigidbody: {fileID: 1671898239}
   DisplayInertiaGizmo: 0
-  rigidbodyDataSource: 0
+  rigidbodyDataSource: 1
   Mass: 1.219
   CenterOfMass: {x: -0, y: 0, z: 0}
   InertiaTensor: {x: 0.002559899, y: 0.0021942, z: 0.002559899}
@@ -4822,7 +4879,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _rigidbody: {fileID: 1679243737}
   DisplayInertiaGizmo: 0
-  rigidbodyDataSource: 0
+  rigidbodyDataSource: 1
   Mass: 8.393
   CenterOfMass: {x: -0, y: 0.138, z: -0.2125}
   InertiaTensor: {x: 0.13388579, y: 0.0151074, z: 0.13388579}
@@ -5174,7 +5231,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _rigidbody: {fileID: 1750079574}
   DisplayInertiaGizmo: 0
-  rigidbodyDataSource: 0
+  rigidbodyDataSource: 1
   Mass: 3.7
   CenterOfMass: {x: -0, y: 0, z: 0}
   InertiaTensor: {x: 0.010267496, y: 0.00666, z: 0.010267496}
@@ -5707,3 +5764,4 @@ SceneRoots:
   - {fileID: 550563193}
   - {fileID: 689257790}
   - {fileID: 1517871471}
+  - {fileID: 226365494}
