@@ -1,11 +1,19 @@
 {
   "dependencies": {
-    "com.siemens.ros-sharp": {
-      "version": "https://github.com/siemens/ros-sharp.git?path=/com.siemens.ros-sharp",
+    "com.coplaydev.unity-mcp": {
+      "version": "https://github.com/CoplayDev/unity-mcp.git?path=/MCPForUnity",
       "depth": 0,
       "source": "git",
-      "dependencies": {},
-      "hash": "ea80541a4f3e5a5733df175122dd8475127d4736"
+      "dependencies": {
+        "com.unity.nuget.newtonsoft-json": "3.0.2"
+      },
+      "hash": "91b6f4d8d672edf389805f2e58f3a47915ea2021"
+    },
+    "com.siemens.ros-sharp": {
+      "version": "file:com.siemens.ros-sharp",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {}
     },
     "com.unity.2d.sprite": {
       "version": "1.0.0",
@@ -112,7 +120,7 @@
     },
     "com.unity.nuget.newtonsoft-json": {
       "version": "3.2.1",
-      "depth": 2,
+      "depth": 0,
       "source": "registry",
       "dependencies": {},
       "url": "https://packages.unity.com"
