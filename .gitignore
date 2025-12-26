@@ -56,3 +56,8 @@ crashlytics-build.properties
 Assets/Samples
 .vs
 .vsconfig
+Assets/TextMesh Pro
+Assets/Packages
+Packages/com.siemens.ros-sharp
+Packages/Microsoft.CodeAnalysis.Analyzers.3.11.0
+ProjectSettings/Packages
