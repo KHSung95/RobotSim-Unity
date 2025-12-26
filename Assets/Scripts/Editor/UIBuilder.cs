@@ -5,7 +5,7 @@ using TMPro;
 using RobotSim.Sensors;
 using System.Collections.Generic;
 
-namespace RobotSim.Editor
+namespace RobotSim.Editor 
 {
     [InitializeOnLoad]
     public class UIBuilder : EditorWindow
@@ -78,7 +78,7 @@ namespace RobotSim.Editor
 
             // VISION SYSTEMModule
             CreateModule(side.transform, "VISION SYSTEM", (p) => {
-                var row = CreateRow(p, "HeaderRow");
+                var row = CreateRow(p, "Header");
                 CreateText(row.transform, "Vision", 18, FontStyles.Bold, Theme.TextMain); 
                 
                 // Toggles Row
@@ -89,8 +89,10 @@ namespace RobotSim.Editor
                 CreateInteractiveToggle(toggleRow.transform, "RGB", true);
                 CreateInteractiveToggle(toggleRow.transform, "Depth", false);
 
-                GameObject feed = CreatePanel(p, "Feed", Color.black);
-                feed.AddComponent<LayoutElement>().minHeight = 180;
+                GameObject feed = new GameObject("Feed", typeof(RectTransform), typeof(RawImage), typeof(LayoutElement));
+                feed.transform.SetParent(p, false);
+                feed.GetComponent<RawImage>().color = Color.white;
+                feed.GetComponent<LayoutElement>().minHeight = 180;
                 
                 var overlay = CreateText(feed.transform, "LIVE FEED", 10, FontStyles.Normal, Color.red);
                 Anchor(overlay.gameObject, Vector2.zero, Vector2.one, Vector2.one);
@@ -100,13 +102,13 @@ namespace RobotSim.Editor
 
             // OPERATION MODE
             CreateModule(side.transform, "OPERATION MODE", (p) => {
-                var row = CreateRow(p, "HeaderRow");
+                var row = CreateRow(p, "Header");
                 CreateText(row.transform, "Operation Mode", 18, FontStyles.Bold, Theme.TextMain); // Added Label
 
                 var btnRow = CreateRow(p, "OpButtons");
                 btnRow.GetComponent<LayoutElement>().minHeight = 60; // Increased Height
-                var b1 = CreateBigButton(btnRow.transform, "CAPTURE", Theme.BgMain);
-                var b2 = CreateBigButton(btnRow.transform, "GUIDANCE", Theme.BgMain);
+                var b1 = CreateBigButton(btnRow.transform, "Capture", "CAPTURE", Theme.BgMain);
+                var b2 = CreateBigButton(btnRow.transform, "Guidence", "GUIDANCE", Theme.BgMain);
                 
                 b1.GetComponent<LayoutElement>().minHeight = 50; // Explicitly larger
                 b2.GetComponent<LayoutElement>().minHeight = 50; 
@@ -118,7 +120,7 @@ namespace RobotSim.Editor
                 if (le == null) le = p.gameObject.AddComponent<LayoutElement>();
                 le.flexibleHeight = 1;
 
-                var row = CreateRow(p, "HeaderRow");
+                var row = CreateRow(p, "Header");
                 CreateText(row.transform, "Direct Control", 18, FontStyles.Bold, Theme.TextMain); // Added Label
 
                 // 2. 간격을 0으로 만들 아이템들을 담을 '묶음 그룹' 생성
@@ -134,19 +136,27 @@ namespace RobotSim.Editor
                 // Tabs (FK / IK)
                 var tabs = CreateRow(tightGroup.transform, "Tabs");
                 tabs.GetComponent<HorizontalLayoutGroup>().spacing = 0;
-                CreateTabButton(tabs.transform, "FK (Joint)", true);
-                CreateTabButton(tabs.transform, "IK (TCP)", false);
+                CreateTabButton(tabs.transform, "FK", "FK (Joint)", true);
+                CreateTabButton(tabs.transform, "IK", "IK (TCP)", false);
 
-                // FK Panel (J1-J6)
-                GameObject fkPanel = new GameObject("FK_Panel", typeof(RectTransform), typeof(Image), typeof(VerticalLayoutGroup));
-                fkPanel.transform.SetParent(tightGroup.transform, false);
-                fkPanel.GetComponent<Image>().color = Theme.BgMain;
-                var vFK = fkPanel.GetComponent<VerticalLayoutGroup>();
-                vFK.padding.top = vFK.padding.bottom = 8;
-                vFK.spacing = 16;
-                vFK.childControlWidth = vFK.childControlHeight = vFK.childForceExpandHeight = vFK.childForceExpandWidth = true;
+                // --- 3. Universal Control Panel (하나만 생성!) ---
+                GameObject controlPanel = new GameObject("ControlPanel", typeof(RectTransform), typeof(Image), typeof(VerticalLayoutGroup));
+                controlPanel.transform.SetParent(tightGroup.transform, false);
+                controlPanel.GetComponent<Image>().color = Theme.BgMain;
 
-                for (int i=1; i<=6; i++) CreateAxisRow(fkPanel.transform, "J" + i);
+                var vGroup = controlPanel.GetComponent<VerticalLayoutGroup>();
+                vGroup.padding = new RectOffset(0, 0, 8, 8);
+                vGroup.spacing = 16;
+                vGroup.childControlWidth = true;
+                vGroup.childControlHeight = true;
+                vGroup.childForceExpandHeight = true;
+
+                for (int i = 0; i < 6; i++)
+                {
+                    // 이름 규칙: "Row_0", "Row_1" ... (FK/IK 구분 없음)
+                    // 초기 라벨: 그냥 "J1" 등으로 해두고 런타임에 덮어씌움
+                    CreateAxisRow(controlPanel.transform, i);
+                }
 
                 // Speed Slider
                 var logicRow = CreateRow(p, "Logic");
@@ -155,7 +165,7 @@ namespace RobotSim.Editor
                 CreateSlider(logicRow.transform, "SpeedSlider");
 
                 // E-Stop
-                var estop = CreateBigButton(p.transform, "EMERGENCY STOP", Theme.Danger);
+                var estop = CreateBigButton(p.transform, "EStop", "EMERGENCY STOP", Theme.Danger);
                 estop.GetComponent<LayoutElement>().minHeight = 45; 
             });
 
@@ -172,14 +182,11 @@ namespace RobotSim.Editor
             rtCT.anchorMin = Vector2.zero; rtCT.anchorMax = Vector2.one;
             rtCT.offsetMin = new Vector2(15, 10); rtCT.offsetMax = new Vector2(-15, -10);
 
-            if (Camera.main) {
+            if (Camera.main)
+            {
                 Camera.main.backgroundColor = new Color(0.02f, 0.02f, 0.03f);
                 Camera.main.rect = new Rect(0.04f, 0.16f, 1f - 0.187f - 0.04f, 1f - 0.16f);
             }
-            
-            // Auto Save as Prefab (Optional Feature per request)
-            // string path = "Assets/Prefabs/GoldenLayoutUI.prefab";
-            // PrefabUtility.SaveAsPrefabAsset(root, path);
         }
 
         // --- Helpers ---
@@ -219,7 +226,7 @@ namespace RobotSim.Editor
         }
 
         private static TextMeshProUGUI CreateText(Transform p, string s, float sz, FontStyles style, Color c) {
-            GameObject o = new GameObject("Txt_" + s, typeof(RectTransform), typeof(TextMeshProUGUI), typeof(LayoutElement));
+            GameObject o = new GameObject("Text", typeof(RectTransform), typeof(TextMeshProUGUI), typeof(LayoutElement));
             o.transform.SetParent(p, false);
             var t = o.GetComponent<TextMeshProUGUI>();
             t.text = s; t.fontSize = sz; t.fontStyle = style; t.color = c;
@@ -234,30 +241,32 @@ namespace RobotSim.Editor
             t.gameObject.AddComponent<LayoutElement>().minHeight = 40;
         }
 
-        private static void CreateAxisRow(Transform p, string label) {
-            GameObject r = CreateRow(p, "Row_" + label);
+        private static void CreateAxisRow(Transform p, int i) {
+            string number = (i + 1).ToString();
+            GameObject r = CreateRow(p, "Row_" + number);
+            r.GetComponent<LayoutElement>().minHeight = 24;
 
             var rhlg = r.GetComponent<HorizontalLayoutGroup>();
             rhlg.spacing = 16;
             rhlg.padding.right = 8;
             rhlg.childForceExpandHeight = true;
-            r.GetComponent<LayoutElement>().minHeight = 24;
             
-            var l = CreateText(r.transform, label, 18, FontStyles.Normal, Theme.TextDim);
-            l.GetComponent<LayoutElement>().minWidth = 30;
-            l.GetComponent<LayoutElement>().flexibleWidth = 0;
+            var l = CreateText(r.transform, "", 18, FontStyles.Normal, Theme.TextDim);
+            l.name = "Name";
             l.alignment = TextAlignmentOptions.Center;
+            l.GetComponent<LayoutElement>().preferredWidth = 0;
 
-            var val = CreateText(r.transform, "0.00", 18, FontStyles.Normal, Theme.TextMain);
+            var val = CreateText(r.transform, "", 18, FontStyles.Normal, Theme.TextMain);
+            val.name = "Value";
             val.alignment = TextAlignmentOptions.Center;
-            val.GetComponent<LayoutElement>().flexibleWidth = 1;
-            
-            CreateSmallBtn(r.transform, "-");
-            CreateSmallBtn(r.transform, "+");
+            val.GetComponent<LayoutElement>().preferredWidth = 0;
+
+            CreateSmallBtn(r.transform, "Sub", "-");
+            CreateSmallBtn(r.transform, "Add", "+");
         }
         
-        private static void CreateSmallBtn(Transform p, string t) {
-            GameObject b = CreatePanel(p, "Btn", Theme.BgPanel);
+        private static void CreateSmallBtn(Transform p, string name, string t) {
+            GameObject b = CreatePanel(p, name, Theme.BgPanel);
             b.GetComponent<RectTransform>().sizeDelta = new Vector2(24, 20); 
             b.AddComponent<Button>();
             b.GetComponent<LayoutElement>().minWidth = 24;
@@ -266,8 +275,8 @@ namespace RobotSim.Editor
             txt.alignment = TextAlignmentOptions.Center;
         }
 
-        private static GameObject CreateBigButton(Transform p, string t, Color c) {
-            GameObject b = CreatePanel(p, "BigBtn", c);
+        private static GameObject CreateBigButton(Transform p, string name, string t, Color c) {
+            GameObject b = CreatePanel(p, name, c);
             b.AddComponent<Button>();
             b.AddComponent<LayoutElement>().minHeight = 35; 
             b.AddComponent<LayoutElement>().flexibleWidth = 1;
@@ -276,8 +285,8 @@ namespace RobotSim.Editor
             return b;
         }
 
-        private static void CreateTabButton(Transform p, string t, bool active) {
-            var b = CreateBigButton(p, t, active ? Theme.Accent : Theme.BgPanel);
+        private static void CreateTabButton(Transform p, string name, string t, bool active) {
+            var b = CreateBigButton(p, name, t, active ? Theme.Accent : Theme.BgPanel);
             b.GetComponent<LayoutElement>().minHeight = 28; 
             if (active) b.GetComponentInChildren<TextMeshProUGUI>().color = Color.black; 
         }
