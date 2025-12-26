@@ -42,10 +42,7 @@ namespace RobotSim.UI
 
         // Control Panel
         private GameObject _controlPanel;
-        private TextMeshProUGUI[] _names = new TextMeshProUGUI[6];
-        private TextMeshProUGUI[] _values = new TextMeshProUGUI[6];
-        private JogButton[] _subBtns = new JogButton[6];
-        private JogButton[] _addBtns = new JogButton[6];
+        private RobotAxisRow[] _rows;
 
         private void InitializeReferences()
         {
@@ -63,7 +60,7 @@ namespace RobotSim.UI
             }
 
             // Find UI Roots more robustly
-            GameObject canvas = GameObject.Find("Canvas");
+            var canvas = FindObjectOfType<Canvas>();
             Transform uiRoot = canvas?.transform.Find("UIRoot");
             Sidebar = uiRoot?.Find("Sidebar")?.gameObject;
             ConsolePanel = uiRoot?.Find("Console")?.gameObject;
@@ -82,12 +79,16 @@ namespace RobotSim.UI
                 _eStopBtn = FindUISub<Button>(Sidebar.transform, "EStop");
 
                 _controlPanel = Sidebar.transform.FindDeepChild("ControlPanel")?.gameObject;
-                for (int i = 0; i < 6; i++)
+                
+                if (_controlPanel != null)
                 {
-                    _names[i] = FindUISub<TextMeshProUGUI>(_controlPanel.transform, $"Row_{i + 1}/Name");
-                    _values[i] = FindUISub<TextMeshProUGUI>(_controlPanel.transform, $"Row_{i + 1}/Value");
-                    _subBtns[i] = BindJogBtn(_controlPanel.transform, $"Row_{i+1}/Sub", i, -1);
-                    _addBtns[i] = BindJogBtn(_controlPanel.transform, $"Row_{i+1}/Add", i, 1);
+                    _rows = _controlPanel.GetComponentsInChildren<RobotAxisRow>();
+                    for (int i = 0; i < _rows.Length; i++)
+                    {
+                        // Bind JogButtons explicitly to the buttons found in RobotAxisRow
+                        BindJogBtn(_rows[i].SubBtn, i, -1);
+                        BindJogBtn(_rows[i].AddBtn, i, 1);
+                    }
                 }
             }
             else
@@ -96,15 +97,13 @@ namespace RobotSim.UI
             }
         }
 
-        private JogButton BindJogBtn(Transform root, string path, int index, float dir)
+        private void BindJogBtn(Button btn, int index, float dir)
         {
-            var btn = FindUISub<Button>(root, path);
-            if (btn == null) return null;
+            if (btn == null) return;
             var jog = btn.GetComponent<JogButton>();
             if (jog == null) jog = btn.gameObject.AddComponent<JogButton>();
             jog.AxisIndex = index;
             jog.Direction = dir;
-            return jog;
         }
 
         private T FindUISub<T>(Transform root, string name) where T : Component
@@ -199,71 +198,29 @@ namespace RobotSim.UI
         private void Update()
         {
             float speed = _speedSlider ? _speedSlider.value : 0.5f;
+            if (_rows == null) return;
 
-            if (_isFKMode)
+            // Check jogging using the RobotAxisRow buttons components
+            for (int i = 0; i < _rows.Length; i++)
             {
-                UpdateJogging(_subBtns, _addBtns, true, speed);
-                UpdateFKDisplay();
-            }
-            else
-            {
-                UpdateJogging(_subBtns, _addBtns, false, speed);
-                UpdateIKDisplay();
-            }
-        }
+                var row = _rows[i];
+                if(row == null) continue;
 
-        private void UpdateFKDisplay()
-        {
-            if (FKController == null) return;
-            double[] joints = FKController.GetCurrentJoints();
-            if (joints == null) return;
+                var negJog = row.SubBtn.GetComponent<JogButton>();
+                var posJog = row.AddBtn.GetComponent<JogButton>();
 
-            for (int i = 0; i < 6 && i < joints.Length; i++)
-            {
-                if (_names[i])
-                    _names[i].text = "J" + (i + 1).ToString();
-
-                if (_values[i])
-                    _values[i].text = (joints[i] * Mathf.Rad2Deg).ToString("F1") + "°";
-            }
-        }
-
-        private void UpdateIKDisplay()
-        {
-            if (IKController == null) return;
-            Vector3 pos = IKController.transform.localPosition;
-            Vector3 rot = IKController.transform.localEulerAngles;
-
-            if (_names[0]) _names[0].text = "X";
-            if (_names[1]) _names[1].text = "Y";
-            if (_names[2]) _names[2].text = "Z";
-            if (_names[3]) _names[3].text = "Rx";
-            if (_names[4]) _names[4].text = "Ry";
-            if (_names[5]) _names[5].text = "Rz";
-            if (_values[0]) _values[0].text = pos.x.ToString("F3");
-            if (_values[1]) _values[1].text = pos.y.ToString("F3");
-            if (_values[2]) _values[2].text = pos.z.ToString("F3");
-            if (_values[3]) _values[3].text = rot.x.ToString("F1") + "°";
-            if (_values[4]) _values[4].text = rot.y.ToString("F1") + "°";
-            if (_values[5]) _values[5].text = rot.z.ToString("F1") + "°";
-        }
-
-        private void UpdateJogging(JogButton[] negs, JogButton[] pos, bool isFK, float speed)
-        {
-            for (int i = 0; i < 6; i++)
-            {
                 float dir = 0;
-                if (negs[i] != null && negs[i].IsPressed) dir = -1;
-                if (pos[i] != null && pos[i].IsPressed) dir = 1;
+                if (negJog != null && negJog.IsPressed) dir = -1;
+                if (posJog != null && posJog.IsPressed) dir = 1;
 
                 if (dir != 0)
                 {
-                    if (isFK && FKController)
+                    if (_isFKMode && FKController)
                     {
                         FKController.RotationSpeed = speed * 45f;
                         FKController.MoveJoint(i, dir);
                     }
-                    else if (!isFK && IKController)
+                    else if (!_isFKMode && IKController)
                     {
                         IKController.moveSpeed = speed * 0.5f;
                         IKController.rotateSpeed = speed * 45f;
@@ -278,6 +235,46 @@ namespace RobotSim.UI
                     }
                 }
             }
+
+            if (_isFKMode) UpdateFKDisplay();
+            else UpdateIKDisplay();
+        }
+
+        private void UpdateFKDisplay()
+        {
+            if (FKController == null || _rows == null) return;
+            double[] joints = FKController.GetCurrentJoints();
+            if (joints == null) return;
+
+            for (int i = 0; i < _rows.Length && i < joints.Length; i++)
+            {
+                if (_rows[i])
+                {
+                    _rows[i].NameText.text = "J" + (i + 1);
+                    _rows[i].ValueText.text = (joints[i] * Mathf.Rad2Deg).ToString("F1") + "°";
+                }
+            }
+        }
+
+        private void UpdateIKDisplay()
+        {
+            if (IKController == null || _rows == null) return;
+            Vector3 pos = IKController.transform.localPosition;
+            Vector3 rot = IKController.transform.localEulerAngles;
+
+            if (_rows.Length > 0) _rows[0].NameText.text = "X";
+            if (_rows.Length > 1) _rows[1].NameText.text = "Y";
+            if (_rows.Length > 2) _rows[2].NameText.text = "Z";
+            if (_rows.Length > 3) _rows[3].NameText.text = "Rx";
+            if (_rows.Length > 4) _rows[4].NameText.text = "Ry";
+            if (_rows.Length > 5) _rows[5].NameText.text = "Rz";
+
+            if (_rows.Length > 0) _rows[0].ValueText.text = pos.x.ToString("F3");
+            if (_rows.Length > 1) _rows[1].ValueText.text = pos.y.ToString("F3");
+            if (_rows.Length > 2) _rows[2].ValueText.text = pos.z.ToString("F3");
+            if (_rows.Length > 3) _rows[3].ValueText.text = rot.x.ToString("F1") + "°";
+            if (_rows.Length > 4) _rows[4].ValueText.text = rot.y.ToString("F1") + "°";
+            if (_rows.Length > 5) _rows[5].ValueText.text = rot.z.ToString("F1") + "°";
         }
 
         public void SetCameraMount(bool isHandEye)

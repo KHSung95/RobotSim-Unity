@@ -5,7 +5,7 @@ using TMPro;
 using RobotSim.Sensors;
 using System.Collections.Generic;
 
-namespace RobotSim.Editor 
+namespace RobotSim.Editor
 {
     [InitializeOnLoad]
     public class UIBuilder : EditorWindow
@@ -46,7 +46,7 @@ namespace RobotSim.Editor
             GameObject nav = CreatePanel(root.transform, "NavBar", Theme.BgMain);
             Anchor(nav, Vector2.zero, new Vector2(0, 1), new Vector2(0, 0.5f));
             nav.GetComponent<RectTransform>().sizeDelta = new Vector2(60, 0);
-            
+
             VerticalLayoutGroup vNav = nav.AddComponent<VerticalLayoutGroup>();
             vNav.padding = new RectOffset(5, 5, 30, 20);
             vNav.spacing = 25;
@@ -56,7 +56,7 @@ namespace RobotSim.Editor
             CreateNavIcon(nav.transform, "PWR", Theme.Accent);
             CreateNavIcon(nav.transform, "VIS", Theme.TextDim);
             CreateNavIcon(nav.transform, "CTL", Theme.TextDim);
-            
+
             GameObject space = new GameObject("Spacer", typeof(RectTransform), typeof(LayoutElement));
             space.transform.SetParent(nav.transform, false);
             space.GetComponent<LayoutElement>().flexibleHeight = 1;
@@ -77,10 +77,11 @@ namespace RobotSim.Editor
             header.alignment = TextAlignmentOptions.Center;
 
             // VISION SYSTEMModule
-            CreateModule(side.transform, "VISION SYSTEM", (p) => {
+            CreateModule(side.transform, "VISION SYSTEM", (p) =>
+            {
                 var row = CreateRow(p, "Header");
-                CreateText(row.transform, "Vision", 18, FontStyles.Bold, Theme.TextMain); 
-                
+                CreateText(row.transform, "Vision", 18, FontStyles.Bold, Theme.TextMain);
+
                 // Toggles Row
                 var toggleRow = CreateRow(row.transform, "Toggles");
                 toggleRow.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleRight;
@@ -93,7 +94,7 @@ namespace RobotSim.Editor
                 feed.transform.SetParent(p, false);
                 feed.GetComponent<RawImage>().color = Color.white;
                 feed.GetComponent<LayoutElement>().minHeight = 180;
-                
+
                 var overlay = CreateText(feed.transform, "LIVE FEED", 10, FontStyles.Normal, Color.red);
                 Anchor(overlay.gameObject, Vector2.zero, Vector2.one, Vector2.one);
                 overlay.alignment = TextAlignmentOptions.TopRight;
@@ -101,7 +102,8 @@ namespace RobotSim.Editor
             });
 
             // OPERATION MODE
-            CreateModule(side.transform, "OPERATION MODE", (p) => {
+            CreateModule(side.transform, "OPERATION MODE", (p) =>
+            {
                 var row = CreateRow(p, "Header");
                 CreateText(row.transform, "Operation Mode", 18, FontStyles.Bold, Theme.TextMain); // Added Label
 
@@ -109,13 +111,14 @@ namespace RobotSim.Editor
                 btnRow.GetComponent<LayoutElement>().minHeight = 60; // Increased Height
                 var b1 = CreateBigButton(btnRow.transform, "Capture", "CAPTURE", Theme.BgMain);
                 var b2 = CreateBigButton(btnRow.transform, "Guidence", "GUIDANCE", Theme.BgMain);
-                
+
                 b1.GetComponent<LayoutElement>().minHeight = 50; // Explicitly larger
-                b2.GetComponent<LayoutElement>().minHeight = 50; 
+                b2.GetComponent<LayoutElement>().minHeight = 50;
             });
 
             // JOGGING
-            CreateModule(side.transform, "JOGGING", (p) => {
+            CreateModule(side.transform, "JOGGING", (p) =>
+            {
                 var le = p.GetComponent<LayoutElement>();
                 if (le == null) le = p.gameObject.AddComponent<LayoutElement>();
                 le.flexibleHeight = 1;
@@ -123,9 +126,9 @@ namespace RobotSim.Editor
                 var row = CreateRow(p, "Header");
                 CreateText(row.transform, "Direct Control", 18, FontStyles.Bold, Theme.TextMain); // Added Label
 
-                // 2. ∞£∞›¿ª 0¿∏∑Œ ∏∏µÈ æ∆¿Ã≈€µÈ¿ª ¥„¿ª 'π≠¿Ω ±◊∑Ï' ª˝º∫
+                // 2. Í∞ÑÍ≤©ÏùÑ 0ÏúºÎ°ú ÎßåÎì§ ÏïÑÏù¥ÌÖúÎì§ÏùÑ Îã¥ÏùÑ 'Î¨∂Ïùå Í∑∏Î£π' ÏÉùÏÑ±
                 var tightGroup = new GameObject("TightGroup", typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(LayoutElement));
-                tightGroup.transform.SetParent(p, false);// π≠¿Ω ±◊∑Ï º≥¡§ (∞£∞› 0)
+                tightGroup.transform.SetParent(p, false);// Î¨∂Ïùå Í∑∏Î£π ÏÑ§Ï†ï (Í∞ÑÍ≤© 0)
 
                 var tgGroup = tightGroup.GetComponent<VerticalLayoutGroup>();
                 tgGroup.spacing = 0;
@@ -139,13 +142,13 @@ namespace RobotSim.Editor
                 CreateTabButton(tabs.transform, "FK", "FK (Joint)", true);
                 CreateTabButton(tabs.transform, "IK", "IK (TCP)", false);
 
-                // --- 3. Universal Control Panel («œ≥™∏∏ ª˝º∫!) ---
+                // --- 3. Universal Control Panel (ÌïòÎÇòÎßå ÏÉùÏÑ±!) ---
                 GameObject controlPanel = new GameObject("ControlPanel", typeof(RectTransform), typeof(Image), typeof(VerticalLayoutGroup));
                 controlPanel.transform.SetParent(tightGroup.transform, false);
                 controlPanel.GetComponent<Image>().color = Theme.BgMain;
 
                 var vGroup = controlPanel.GetComponent<VerticalLayoutGroup>();
-                vGroup.padding = new RectOffset(0, 0, 8, 8);
+                vGroup.padding = new RectOffset(0, 0, 16, 16);
                 vGroup.spacing = 16;
                 vGroup.childControlWidth = true;
                 vGroup.childControlHeight = true;
@@ -153,28 +156,28 @@ namespace RobotSim.Editor
 
                 for (int i = 0; i < 6; i++)
                 {
-                    // ¿Ã∏ß ±‘ƒ¢: "Row_0", "Row_1" ... (FK/IK ±∏∫– æ¯¿Ω)
-                    // √ ±‚ ∂Û∫ß: ±◊≥… "J1" µÓ¿∏∑Œ «ÿµŒ∞Ì ∑±≈∏¿”ø° µ§æÓæ∫øÚ
+                    // Ïù¥Î¶Ñ Í∑úÏπô: "Row_0", "Row_1" ... (FK/IK Íµ¨Î∂Ñ ÏóÜÏùå)
+                    // Ï¥àÍ∏∞ ÎùºÎ≤®: Í∑∏ÎÉ• "J1" Îì±ÏúºÎ°ú Ìï¥ÎëêÍ≥† Îü∞ÌÉÄÏûÑÏóê ÎçÆÏñ¥ÏîåÏõÄ
                     CreateAxisRow(controlPanel.transform, i);
                 }
 
                 // Speed Slider
                 var logicRow = CreateRow(p, "Logic");
-                logicRow.GetComponent<LayoutElement>().minHeight = 24; 
+                logicRow.GetComponent<LayoutElement>().minHeight = 24;
                 CreateText(logicRow.transform, "SPEED", 11, FontStyles.Bold, Theme.TextDim).GetComponent<LayoutElement>().minWidth = 50;
                 CreateSlider(logicRow.transform, "SpeedSlider");
 
                 // E-Stop
                 var estop = CreateBigButton(p.transform, "EStop", "EMERGENCY STOP", Theme.Danger);
-                estop.GetComponent<LayoutElement>().minHeight = 45; 
+                estop.GetComponent<LayoutElement>().minHeight = 45;
             });
 
             // 3. Console
-            GameObject console = CreatePanel(root.transform, "Console", new Color(0,0,0,0.8f));
+            GameObject console = CreatePanel(root.transform, "Console", new Color(0, 0, 0, 0.8f));
             Anchor(console, Vector2.zero, new Vector2(1, 0), new Vector2(0.5f, 0));
             var rtC = console.GetComponent<RectTransform>();
-            rtC.offsetMin = new Vector2(60, 0); 
-            rtC.offsetMax = new Vector2(-360, 160); 
+            rtC.offsetMin = new Vector2(60, 0);
+            rtC.offsetMax = new Vector2(-360, 160);
 
             var consoleTxt = CreateText(console.transform, "[System] Ready...", 12, FontStyles.Normal, Theme.TextDim);
             //consoleTxt.alignment = TextAlignmentOptions.TopLeft;
@@ -190,52 +193,60 @@ namespace RobotSim.Editor
         }
 
         // --- Helpers ---
-        private static void Stretch(GameObject o) {
+        private static void Stretch(GameObject o)
+        {
             var rt = o.GetComponent<RectTransform>();
             rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.one; rt.sizeDelta = Vector2.zero;
         }
 
-        private static void Anchor(GameObject o, Vector2 min, Vector2 max, Vector2 piv) {
+        private static void Anchor(GameObject o, Vector2 min, Vector2 max, Vector2 piv)
+        {
             var rt = o.GetComponent<RectTransform>();
             rt.anchorMin = min; rt.anchorMax = max; rt.pivot = piv; rt.anchoredPosition = Vector2.zero;
         }
 
-        private static GameObject CreatePanel(Transform p, string n, Color c) {
+        private static GameObject CreatePanel(Transform p, string n, Color c)
+        {
             GameObject o = new GameObject(n, typeof(RectTransform), typeof(Image), typeof(LayoutElement));
             o.transform.SetParent(p, false);
             o.GetComponent<Image>().color = c;
             return o;
         }
 
-        private static void CreateModule(Transform p, string title, System.Action<Transform> content) {
+        private static void CreateModule(Transform p, string title, System.Action<Transform> content)
+        {
             GameObject m = CreatePanel(p, title + "_Module", Theme.BgSec);
             var v = m.AddComponent<VerticalLayoutGroup>();
             v.padding = new RectOffset(12, 12, 12, 12);
             v.spacing = 16; v.childControlWidth = true; v.childControlHeight = true; v.childForceExpandHeight = false;
-            content(m.transform); 
+            content(m.transform);
         }
 
-        private static GameObject CreateRow(Transform p, string n) {
+        private static GameObject CreateRow(Transform p, string n)
+        {
             GameObject r = new GameObject(n, typeof(RectTransform), typeof(HorizontalLayoutGroup), typeof(LayoutElement));
             r.transform.SetParent(p, false);
             var h = r.GetComponent<HorizontalLayoutGroup>();
-            h.spacing = 8; h.childControlWidth = true; h.childControlHeight = true; h.childForceExpandWidth = true; h.childForceExpandHeight = false; 
-            h.childAlignment = TextAnchor.MiddleLeft; 
-            r.GetComponent<LayoutElement>().minHeight = 28; 
+            h.spacing = 8; h.childControlWidth = true; h.childControlHeight = true; h.childForceExpandWidth = true; h.childForceExpandHeight = false;
+            h.childAlignment = TextAnchor.MiddleLeft;
+            r.GetComponent<LayoutElement>().minHeight = 28;
             return r;
         }
 
-        private static TextMeshProUGUI CreateText(Transform p, string s, float sz, FontStyles style, Color c) {
+        private static TextMeshProUGUI CreateText(Transform p, string s, float sz, FontStyles style, Color c)
+        {
             GameObject o = new GameObject("Text", typeof(RectTransform), typeof(TextMeshProUGUI), typeof(LayoutElement));
             o.transform.SetParent(p, false);
             var t = o.GetComponent<TextMeshProUGUI>();
             t.text = s; t.fontSize = sz; t.fontStyle = style; t.color = c;
+            t.raycastTarget = false; // FIX: Make text transparent to raycasts (clicks)
             var rt = o.GetComponent<RectTransform>();
             rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.one;
             return t;
         }
 
-        private static void CreateNavIcon(Transform p, string txt, Color c) {
+        private static void CreateNavIcon(Transform p, string txt, Color c)
+        {
             var t = CreateText(p, txt, 12, FontStyles.Bold, c);
             t.alignment = TextAlignmentOptions.Center;
             t.gameObject.AddComponent<LayoutElement>().minHeight = 40;
@@ -246,69 +257,86 @@ namespace RobotSim.Editor
             GameObject r = CreateRow(p, "Row_" + number);
             r.GetComponent<LayoutElement>().minHeight = 24;
 
-            var rhlg = r.GetComponent<HorizontalLayoutGroup>();
-            rhlg.spacing = 16;
-            rhlg.padding.right = 8;
-            rhlg.childForceExpandHeight = true;
-            
+            // Attach the container component
+            var rowRef = r.AddComponent<RobotSim.UI.RobotAxisRow>();
+
+            var hGroup = r.GetComponent<HorizontalLayoutGroup>();
+            hGroup.spacing = 16;
+            hGroup.padding = new RectOffset(16, 16, 0, 0);
+            hGroup.childControlWidth = true;
+            hGroup.childControlHeight = true;
+            hGroup.childForceExpandHeight = true;
+            hGroup.childForceExpandWidth = true; // Fix: Don't force stretch buttons
+
             var l = CreateText(r.transform, "", 18, FontStyles.Normal, Theme.TextDim);
             l.name = "Name";
             l.alignment = TextAlignmentOptions.Center;
             l.GetComponent<LayoutElement>().preferredWidth = 0;
+            // Assign to reference
+            rowRef.NameText = l;
 
             var val = CreateText(r.transform, "", 18, FontStyles.Normal, Theme.TextMain);
             val.name = "Value";
             val.alignment = TextAlignmentOptions.Center;
-            val.GetComponent<LayoutElement>().preferredWidth = 0;
+            val.enableWordWrapping = false;
+            val.overflowMode = TextOverflowModes.Truncate;
+            val.GetComponent<LayoutElement>().preferredWidth = 30;
+            // Assign to reference
+            rowRef.ValueText = val;
 
-            CreateSmallBtn(r.transform, "Sub", "-");
-            CreateSmallBtn(r.transform, "Add", "+");
+            rowRef.SubBtn = CreateSmallBtn(r.transform, "Sub", "-");
+            rowRef.AddBtn = CreateSmallBtn(r.transform, "Add", "+");
         }
         
-        private static void CreateSmallBtn(Transform p, string name, string t) {
+        private static Button CreateSmallBtn(Transform p, string name, string t) {
             GameObject b = CreatePanel(p, name, Theme.BgPanel);
             b.GetComponent<RectTransform>().sizeDelta = new Vector2(24, 20); 
-            b.AddComponent<Button>();
+            var btn = b.AddComponent<Button>();
             b.GetComponent<LayoutElement>().minWidth = 24;
             b.GetComponent<LayoutElement>().flexibleWidth = 0;
             var txt = CreateText(b.transform, t, 12, FontStyles.Normal, Theme.TextMain); 
             txt.alignment = TextAlignmentOptions.Center;
+            return btn;
         }
 
-        private static GameObject CreateBigButton(Transform p, string name, string t, Color c) {
+        private static GameObject CreateBigButton(Transform p, string name, string t, Color c)
+        {
             GameObject b = CreatePanel(p, name, c);
             b.AddComponent<Button>();
-            b.AddComponent<LayoutElement>().minHeight = 35; 
+            b.AddComponent<LayoutElement>().minHeight = 35;
             b.AddComponent<LayoutElement>().flexibleWidth = 1;
             var txt = CreateText(b.transform, t, 12, FontStyles.Bold, Color.white);
             txt.alignment = TextAlignmentOptions.Center;
             return b;
         }
 
-        private static void CreateTabButton(Transform p, string name, string t, bool active) {
+        private static void CreateTabButton(Transform p, string name, string t, bool active)
+        {
             var b = CreateBigButton(p, name, t, active ? Theme.Accent : Theme.BgPanel);
-            b.GetComponent<LayoutElement>().minHeight = 28; 
-            if (active) b.GetComponentInChildren<TextMeshProUGUI>().color = Color.black; 
+            b.GetComponent<LayoutElement>().minHeight = 28;
+            if (active) b.GetComponentInChildren<TextMeshProUGUI>().color = Color.black;
         }
 
         // Real Toggle logic
-        private static void CreateInteractiveToggle(Transform p, string t, bool startOn) {
+        private static void CreateInteractiveToggle(Transform p, string t, bool startOn)
+        {
             GameObject go = CreatePanel(p, "Toggle_" + t, Theme.BgPanel);
-            go.AddComponent<LayoutElement>().minWidth = 50; 
-            go.AddComponent<LayoutElement>().minHeight = 24; 
-            
+            go.AddComponent<LayoutElement>().minWidth = 50;
+            go.AddComponent<LayoutElement>().minHeight = 24;
+
             var toggle = go.AddComponent<Toggle>();
             toggle.isOn = startOn;
-            
+
             // Checkmark
             var img = go.GetComponent<Image>();
             toggle.targetGraphic = img;
-            
-            toggle.onValueChanged.AddListener((val) => {
+
+            toggle.onValueChanged.AddListener((val) =>
+            {
                 img.color = val ? Theme.Accent : Theme.BgPanel;
                 go.GetComponentInChildren<TextMeshProUGUI>().color = val ? Color.black : Theme.TextDim;
             });
-            
+
             img.color = startOn ? Theme.Accent : Theme.BgPanel;
 
             var txt = CreateText(go.transform, t, 10, FontStyles.Bold, startOn ? Color.black : Theme.TextDim);
@@ -316,10 +344,11 @@ namespace RobotSim.Editor
         }
 
 
-        private static void CreateSlider(Transform p, string n) {
+        private static void CreateSlider(Transform p, string n)
+        {
             GameObject s = new GameObject(n, typeof(RectTransform), typeof(Slider), typeof(LayoutElement));
-            s.transform.SetParent(p, false); 
-            s.GetComponent<LayoutElement>().minHeight = 12; 
+            s.transform.SetParent(p, false);
+            s.GetComponent<LayoutElement>().minHeight = 12;
             s.GetComponent<LayoutElement>().flexibleWidth = 1;
 
             // Background
@@ -331,28 +360,28 @@ namespace RobotSim.Editor
             GameObject fillArea = new GameObject("FillArea", typeof(RectTransform));
             fillArea.transform.SetParent(s.transform, false);
             Stretch(fillArea);
-            
+
             GameObject fill = CreatePanel(fillArea.transform, "Fill", Theme.Accent);
             s.GetComponent<Slider>().fillRect = fill.GetComponent<RectTransform>();
-            
+
             // Handle
             GameObject handleArea = new GameObject("HandleArea", typeof(RectTransform));
             handleArea.transform.SetParent(s.transform, false);
             Stretch(handleArea);
-            
+
             GameObject handle = CreatePanel(handleArea.transform, "Handle", Color.white);
             handle.GetComponent<RectTransform>().sizeDelta = new Vector2(16, 0);
             s.GetComponent<Slider>().handleRect = handle.GetComponent<RectTransform>();
             s.GetComponent<Slider>().targetGraphic = handle.GetComponent<Image>();
-            
+
             s.GetComponent<Slider>().value = 0.5f;
 
-            // CreateSlider «‘ºˆ ∏« ∏∂¡ˆ∏∑ø° √ﬂ∞°
-            // ∫Œ∏¿Œ logicRow¿« ∑π¿Ãæ∆øÙ¿ª ∞≠¡¶∑Œ æ˜µ•¿Ã∆Æ«œø© 
-            // ¿⁄Ωƒ¿Œ Slider(s)¿« ≈©±‚∏¶ ∏’¿˙ »Æ¡§ ¡˛Ω¿¥œ¥Ÿ.
+            // CreateSlider Ìï®Ïàò Îß® ÎßàÏßÄÎßâÏóê Ï∂îÍ∞Ä
+            // Î∂ÄÎ™®Ïù∏ logicRowÏùò Î†àÏù¥ÏïÑÏõÉÏùÑ Í∞ïÏ†úÎ°ú ÏóÖÎç∞Ïù¥Ìä∏ÌïòÏó¨ 
+            // ÏûêÏãùÏù∏ Slider(s)Ïùò ÌÅ¨Í∏∞Î•º Î®ºÏ†Ä ÌôïÏ†ï ÏßìÏäµÎãàÎã§.
             //LayoutRebuilder.ForceRebuildLayoutImmediate(p.GetComponent<RectTransform>());
 
-            // ±◊ ¥Ÿ¿Ω Slider ≥ª∫Œ¿« ¿⁄ΩƒµÈ¿Ã 0¿∏∑Œ ∏¬√Á¡ˆ∞‘ «’¥œ¥Ÿ.
+            // Í∑∏ Îã§Ïùå Slider ÎÇ¥Î∂ÄÏùò ÏûêÏãùÎì§Ïù¥ 0ÏúºÎ°ú ÎßûÏ∂∞ÏßÄÍ≤å Ìï©ÎãàÎã§.
             bg.GetComponent<RectTransform>().sizeDelta = Vector2.zero;
             fill.GetComponent<RectTransform>().sizeDelta = Vector2.zero;
         }
