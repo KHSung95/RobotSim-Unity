@@ -21,6 +21,7 @@ namespace RosSharp.RosBridgeClient
 
         protected override void Start()
         {
+            if (string.IsNullOrEmpty(Topic)) Topic = "/unity/target_pose";
             base.Start();
             InitializeMessage();
         }

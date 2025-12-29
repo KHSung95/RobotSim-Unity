@@ -6,13 +6,20 @@ using System.Linq;
 namespace RosSharp.RosBridgeClient
 {
     [RequireComponent(typeof(TargetJointPublisher))]
+    [RequireComponent(typeof(JointJogPublisher))]
     public class TargetJointController : MonoBehaviour
     {
         private TargetJointPublisher publisher;
+        private JointJogPublisher jogPublisher;
         
         [Header("Control Settings")]
         public float RotationSpeed = 30.0f; // Degrees per second
         public KeyCode PublishKey = KeyCode.Return;
+        public bool AutoPublish = true; 
+
+        [Header("Networking")]
+        public float PublishFrequency = 20.0f; // Hz
+        private float _lastPublishTime;
         
         [Header("Robot Connection")]
         [Tooltip("Assign the Robot Root GameObject here to visualize movement locally.")]
@@ -31,6 +38,7 @@ namespace RosSharp.RosBridgeClient
         private void Start()
         {
             publisher = GetComponent<TargetJointPublisher>();
+            jogPublisher = GetComponent<JointJogPublisher>();
             
             // Initial state
             currentJoints = new double[publisher.JointNames.Length];
@@ -101,11 +109,7 @@ namespace RosSharp.RosBridgeClient
                     string name = publisher.JointNames[selectedJointIndex];
                     if (jointMap.ContainsKey(name))
                     {
-                         // Calculate reverse delta to put it back
-                         float rollbackDelta = (float)(previousJoints[selectedJointIndex] - (previousJoints[selectedJointIndex] + (moveAmount))); // This is complex, easier to use absolute set if possible
-                         // Simply update with 0 delta to sync or use specific absolute method if Siemens ROS# has one.
-                         // Siemens ROS# UpdateJointState is incremental. 
-                         jointMap[name].UpdateJointState(-(float)moveAmount); 
+                         // Passive Mode: Visual rollback handled by feedback
                     }
                 }
             }
@@ -121,21 +125,59 @@ namespace RosSharp.RosBridgeClient
             selectedJointIndex = jointIndex;
             moveAmount = direction * RotationSpeed * Time.deltaTime * Mathf.Deg2Rad;
             ApplyMove();
+
+            if (AutoPublish && publisher != null)
+            {
+                if (Time.time - _lastPublishTime > (1.0f / PublishFrequency))
+                {
+                    publisher.PublishJoints(currentJoints);
+                    _lastPublishTime = Time.time;
+                }
+            }
+        }
+
+        public void JogJoint(int jointIndex, float direction)
+        {
+            if (jogPublisher == null) return;
+            
+            selectedJointIndex = jointIndex;
+            float velocity = direction * RotationSpeed * Mathf.Deg2Rad; // rad/s
+            
+            jogPublisher.PublishJog(jointIndex, velocity);
+        }
+
+        public void SetJointConfiguration(double[] newJoints)
+        {
+            if (newJoints.Length != currentJoints.Length)
+            {
+                Debug.LogWarning("Joint count mismatch");
+                return;
+            }
+
+            // Passive Mode: Only update internal command state.
+            // Visuals will be updated by ROS feedback (SmoothJointStateSubscriber).
+            for (int i = 0; i < publisher.JointNames.Length; i++)
+            {
+                currentJoints[i] = newJoints[i];
+            }
         }
 
         private void ApplyMove()
         {
-             currentJoints[selectedJointIndex] += moveAmount;
-                
-             // Simple wrapping
-             if (currentJoints[selectedJointIndex] > Mathf.PI) currentJoints[selectedJointIndex] -= 2 * Mathf.PI;
-             if (currentJoints[selectedJointIndex] < -Mathf.PI) currentJoints[selectedJointIndex] += 2 * Mathf.PI;
-                
-             // Apply to Visual Robot
+             // [Passive Mode] Instead of accumulating internal state, 
+             // we read the ACTUAL position of the robot in Unity (updated by Subscriber).
              string name = publisher.JointNames[selectedJointIndex];
              if (jointMap.ContainsKey(name))
              {
-                 jointMap[name].UpdateJointState((float)moveAmount);
+                 float actualCurrentPos = (float)jointMap[name].GetPosition();
+                 currentJoints[selectedJointIndex] = actualCurrentPos + moveAmount;
+                    
+                 // Simple wrapping
+                 if (currentJoints[selectedJointIndex] > Mathf.PI) currentJoints[selectedJointIndex] -= 2 * Mathf.PI;
+                 if (currentJoints[selectedJointIndex] < -Mathf.PI) currentJoints[selectedJointIndex] += 2 * Mathf.PI;
+                 
+                 // Note: We do NOT call UpdateJointState here. 
+                 // We only update the 'currentJoints' buffer used for publishing.
              }
         }
 
@@ -151,6 +193,14 @@ namespace RosSharp.RosBridgeClient
             {
                 moveAmount = move * RotationSpeed * Time.deltaTime * Mathf.Deg2Rad;
                 ApplyMove();
+
+                // Rate limited auto-publish for keyboard too
+                if (AutoPublish && (Time.time - _lastPublishTime > (1.0f / PublishFrequency)))
+                {
+                    publisher.PublishJoints(currentJoints);
+                    _lastPublishTime = Time.time;
+                }
+
                 return true;
             }
             return false;

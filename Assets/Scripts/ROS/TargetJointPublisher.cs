@@ -18,6 +18,7 @@ namespace RosSharp.RosBridgeClient
 
         protected override void Start()
         {
+            if (string.IsNullOrEmpty(Topic)) Topic = "/joint_commands";
             base.Start();
             InitializeMessage();
         }
