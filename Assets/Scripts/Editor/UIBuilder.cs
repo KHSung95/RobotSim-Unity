@@ -303,10 +303,14 @@ namespace RobotSim.Editor
         {
             GameObject b = CreatePanel(p, name, c);
             b.AddComponent<Button>();
-            b.AddComponent<LayoutElement>().minHeight = 35;
-            b.AddComponent<LayoutElement>().flexibleWidth = 1;
+
+            var lElement = b.GetComponent<LayoutElement>();
+            lElement.flexibleWidth = 1;
+            lElement.minHeight = 35;
+
             var txt = CreateText(b.transform, t, 12, FontStyles.Bold, Color.white);
             txt.alignment = TextAlignmentOptions.Center;
+
             return b;
         }
 
