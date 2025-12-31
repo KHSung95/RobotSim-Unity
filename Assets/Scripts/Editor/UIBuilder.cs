@@ -264,14 +264,7 @@ namespace RobotSim.Editor
             //// Center, 400x300
             //Anchor(modal, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f));
             //modal.GetComponent<RectTransform>().sizeDelta = new Vector2(400, 300);
-            
-            //// Add Border/Shadow visual if possible (Outline for now)
-            //var outline = modal.AddComponent<Outline>();
-            //outline.effectColor = Theme.Accent;
-            //outline.effectDistance = new Vector2(1, -1);
-
-            //// Drag Handler
-            //modal.AddComponent<RobotSim.UI.DragWindow>();
+      
 
             //// 레이아웃 그룹 설정 최적화
             //var vModal = modal.AddComponent<VerticalLayoutGroup>();
@@ -681,6 +674,13 @@ namespace RobotSim.Editor
             var cancelBtn = CreateBigButton(footer.transform, "Button_Cancel", "Cancel", Theme.BgSec);
             cancelBtn.GetComponent<LayoutElement>().preferredWidth = 90;
 
+            //// Add Border/Shadow visual if possible (Outline for now)
+            var outline = modal.AddComponent<Outline>();
+            outline.effectColor = Theme.Accent;
+            outline.effectDistance = new Vector2(1, -1);
+
+            //// Drag Handler
+            modal.AddComponent<RobotSim.UI.DragWindow>();
             modal.SetActive(false);
         }
 

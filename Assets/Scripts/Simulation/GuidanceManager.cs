@@ -1,6 +1,8 @@
 using UnityEngine;
 using System.Collections.Generic;
 using RobotSim.Sensors;
+using RobotSim.ROS.Services;
+using RobotSim.Robot;
 
 namespace RobotSim.Simulation
 {
@@ -14,6 +16,8 @@ namespace RobotSim.Simulation
         [Header("Industrial Logic (T_ic)")]
         public Transform RobotFlange; // TCP
         public VirtualCameraMount CamMount;
+        public MovePlanClient Mover;
+        public RobotStateProvider RobotState;
         
         [Header("Saved Masters")]
         public Matrix4x4 T_ib = Matrix4x4.identity; // Base to Install Pose (Reference)
@@ -30,6 +34,8 @@ namespace RobotSim.Simulation
         {
             if (PCG == null) PCG = FindObjectOfType<PointCloudGenerator>();
             if (CamMount == null) CamMount = FindObjectOfType<VirtualCameraMount>();
+            if (Mover == null) Mover = FindObjectOfType<MovePlanClient>();
+            if (RobotState == null) RobotState = FindObjectOfType<RobotStateProvider>();
         }
 
         [ContextMenu("Capture Master")]
@@ -56,19 +62,26 @@ namespace RobotSim.Simulation
             Debug.Log("[GuidanceManager] Master Captured. Install Pose & Master Scan stored.");
         }
 
-        [ContextMenu("Run Guidance Scan")]
+        [ContextMenu("Capture Scan (Current)")]
+        public void CaptureCurrent()
+        {
+             if (TargetObject == null || RobotBase == null) return;
+
+             // 1. Calculate T_ic for current scan
+             Matrix4x4 T_ic_scan = T_ib.inverse * (RobotBase.worldToLocalMatrix * CamMount.transform.localToWorldMatrix);
+
+             // 2. Capture Scan
+             if (PCG != null) 
+             {
+                 PCG.CaptureScan(T_ic_scan);
+             }
+             Debug.Log("[GuidanceManager] Current Scan Captured.");
+        }
+
+        [ContextMenu("Run Guidance (Move)")]
         public void RunGuidance()
         {
-            if (TargetObject == null || RobotBase == null || RobotFlange == null) return;
-
-            // 1. Calculate T_ic for current scan
-            Matrix4x4 T_ic_scan = T_ib.inverse * (RobotBase.worldToLocalMatrix * CamMount.transform.localToWorldMatrix);
-
-            // 2. Capture and Compare
-            if (PCG != null) 
-            {
-                PCG.CaptureScan(T_ic_scan);
-            }
+            if (TargetObject == null || RobotBase == null) return;
 
             // 3. Mock Registration Correction Calculation
             currentObjectPose = new Pose(TargetObject.transform.position, TargetObject.transform.rotation);
@@ -76,11 +89,48 @@ namespace RobotSim.Simulation
             Matrix4x4 m_current_world = Matrix4x4.TRS(currentObjectPose.position, currentObjectPose.rotation, Vector3.one);
             
             // Correction in Install Frame: T_corr = T_master^-1 * T_current
+            // Note: This logic assumes RobotBase is the reference for T_ib
             LastCorrectionMatrix = T_ib.inverse * (RobotBase.worldToLocalMatrix * m_current_world);
             
+            // Deviation for debug
             LastDeviationDist = Vector3.Distance(masterObjectPose.position, currentObjectPose.position);
             
-            Debug.Log($"[GuidanceManager] Scan Complete. T_ic formula applied. Deviation: {LastDeviationDist:F4}m");
+            Debug.Log($"[GuidanceManager] Correction Calculated. Deviation: {LastDeviationDist:F4}m");
+
+            // 4. Move Robot via IK
+            // Strategy: Apply Correction Matrix to Current TCP Pose to find New TCP Pose
+            // NewTCP = Correction * CurrentTCP? 
+            // Actually, if Object moved by T, Robot should move by T to maintain relative pose.
+            // T_corr represents the transformation of the object.
+            
+            if (Mover != null && RobotState != null)
+            {
+                // Decompose Correction Matrix
+                Vector3 moveDelta = m_current_world.GetColumn(3) - m_master_world.GetColumn(3);
+                Quaternion rotDelta = currentObjectPose.rotation * Quaternion.Inverse(masterObjectPose.rotation);
+
+                // Current TCP World Pose
+                Vector3 currentTcpPos = RobotState.TcpTransform.position;
+                Quaternion currentTcpRot = RobotState.TcpTransform.rotation;
+
+                // Target TCP World Pose
+                Vector3 targetPos = currentTcpPos + moveDelta;
+                Quaternion targetRot = rotDelta * currentTcpRot; // Apply rotation delta
+
+                // Create a temporary target shim for MovePlanClient
+                GameObject shim = new GameObject("GuidanceTarget_Shim");
+                shim.transform.position = targetPos;
+                shim.transform.rotation = targetRot;
+
+                Debug.Log($"[GuidanceManager] Executing IK Move to {targetPos}");
+                Mover.PlanAndExecute(shim.transform);
+
+                Destroy(shim, 1.0f); // Cleanup
+            }
+            else
+            {
+                Debug.LogWarning("[GuidanceManager] Cannot Move: Mover or RobotState is missing.");
+            }
         }
 
         public string GetMatrixString()

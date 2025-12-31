@@ -34,6 +34,7 @@ namespace RobotSim.UI
         private Toggle _rgbToggle, _depthToggle;
 
         // Operation References
+        private Button _captureMasterBtn;
         private Button _captureBtn, _guidanceBtn;
 
         // Jogging References
@@ -97,13 +98,18 @@ namespace RobotSim.UI
                 _rgbToggle = FindUISub<Toggle>(Sidebar, "Toggle_RGB");
                 _depthToggle = FindUISub<Toggle>(Sidebar, "Toggle_Depth");
 
-                _captureBtn = FindUISub<Button>(Sidebar, "Capture");
-                _guidanceBtn = FindUISub<Button>(Sidebar, "Guidance");
-
                 // Find Modules by Name (created by UIBuilder as title + "_Module")
                 _operationModule = Sidebar.transform.FindDeepChild("OPERATION MODE_Module")?.gameObject;
+                if(_operationModule)
+                {
+                    _captureBtn = FindUISub<Button>(_operationModule, "Capture");
+                    _guidanceBtn = FindUISub<Button>(_operationModule, "Guidance");
+                }
                 _masterModule = Sidebar.transform.FindDeepChild("MASTER MODE_Module")?.gameObject;
-                
+                if(_masterModule)
+                {
+                    _captureMasterBtn = FindUISub<Button>(_masterModule, "CaptureMaster");
+                }
                 // Initialize state
                 if (_masterModule) _masterModule.SetActive(false);
                 if (_operationModule) _operationModule.SetActive(true);
@@ -155,13 +161,16 @@ namespace RobotSim.UI
             if (_fkToggle) _fkToggle.onValueChanged.AddListener((v) => { if (v) SetMode(true); });
             if (_ikToggle) _ikToggle.onValueChanged.AddListener((v) => { if (v) SetMode(false); });
 
-            if (_captureBtn) _captureBtn.onClick.AddListener(() => 
-            { 
-                Guidance?.CaptureMaster();
-                //PCG?.Generate(); // Trigger PCG when capturing
+            if (_captureBtn) _captureBtn.onClick.AddListener(() =>
+            {
+                Guidance?.CaptureCurrent();
             });
             if (_guidanceBtn) _guidanceBtn.onClick.AddListener(() => Guidance?.RunGuidance());
-
+            
+            if (_captureMasterBtn) _captureMasterBtn.onClick.AddListener(() =>
+            {
+                Guidance?.CaptureMaster();
+            });
             if (_rgbToggle) _rgbToggle.onValueChanged.AddListener((v) => { if (v) SetVisionMode(true); });
             if (_depthToggle) _depthToggle.onValueChanged.AddListener((v) => { if (v) SetVisionMode(false); });
 
