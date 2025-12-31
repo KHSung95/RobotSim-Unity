@@ -9,6 +9,7 @@ namespace RosSharp.RosBridgeClient
         public float moveSpeed = 0.5f;
         public float rotateSpeed = 45f;
         public float boostMultiplier = 3f;
+        public RobotSim.ROS.Services.MovePlanClient MovePlanClient;
 
         [Header("Visuals")]
         public bool showGuides = true;
@@ -17,9 +18,28 @@ namespace RosSharp.RosBridgeClient
         private ControlMode currentMode = ControlMode.Translate;
         private bool useLocalSpace = true;
 
+        private void Start()
+        {
+            if (MovePlanClient == null) MovePlanClient = FindFirstObjectByType<RobotSim.ROS.Services.MovePlanClient>(FindObjectsInactive.Include);
+        }
+
         private void Update()
         {
             HandleInput();
+
+            // Execute MovePlan on Enter
+            if (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter))
+            {
+                if (MovePlanClient != null)
+                {
+                    Debug.Log("[TargetPoseController] Enter pressed. Triggering MoveGroup Plan...");
+                    MovePlanClient.PlanAndExecute(this.transform);
+                }
+                else
+                {
+                    Debug.LogWarning("[TargetPoseController] MovePlanClient not found. Cannot execute.");
+                }
+            }
         }
 
         public void MoveTarget(Vector3 translation, Vector3 rotation)
@@ -126,7 +146,7 @@ namespace RosSharp.RosBridgeClient
             GUILayout.Label($"Space (G): <b>{(useLocalSpace ? "Local" : "Global")}</b>");
             GUILayout.Label("Move: <b>W/S/A/D/Q/E</b>");
             GUILayout.Label("Boost: <b>Shift</b>");
-            GUILayout.Label("Execute: <b>Enter</b>");
+            GUILayout.Label("Execute Move: <b>Enter</b>");
             GUILayout.EndArea();
         }
     }

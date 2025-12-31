@@ -429,6 +429,8 @@ namespace RobotSim.Editor
             var l = CreateText(r.transform, "", 18, FontStyles.Normal, Theme.TextDim);
             l.name = "Name";
             l.alignment = TextAlignmentOptions.Center;
+            l.enableWordWrapping = false;
+            l.overflowMode = TextOverflowModes.Truncate;
             l.GetComponent<LayoutElement>().preferredWidth = 0;
             // Assign to reference
             rowRef.NameText = l;

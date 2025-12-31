@@ -1,16 +1,19 @@
 using UnityEngine;
+using RobotSim.Robot;
+
+using RosSharp.RosBridgeClient;
 using RosSharp.RosBridgeClient.MessageTypes.Sensor;
 using RosSharp.RosBridgeClient.MessageTypes.Std;
 
-namespace RosSharp.RosBridgeClient
+namespace RobotSim.ROS
 {
     public class TargetJointPublisher : UnityPublisher<JointState>
     {
         [Header("ROS Settings")]
         public string FrameId = "base_link";
 
-        [Header("Joint Settings")]
-        public string[] JointNames = { "shoulder_pan_joint", "shoulder_lift_joint", "elbow_joint", "wrist_1_joint", "wrist_2_joint", "wrist_3_joint" };
+        // Joint Settings (Automated via RobotStateProvider)
+        private string[] JointNames;
         
         // Internal state
         private JointState message;
@@ -18,6 +21,17 @@ namespace RosSharp.RosBridgeClient
 
         protected override void Start()
         {
+            if (string.IsNullOrEmpty(Topic)) Topic = "/joint_commands";
+            
+            // Architectural Sync: Get joint names from the Model (RobotStateProvider)
+            var stateProvider = GetComponent<RobotStateProvider>();
+            if (stateProvider != null)
+            {
+                if (stateProvider.JointNames == null) stateProvider.InitializeReferences();
+                JointNames = stateProvider.JointNames;
+                FrameId = stateProvider.BaseFrameId; 
+            }
+
             base.Start();
             InitializeMessage();
         }
