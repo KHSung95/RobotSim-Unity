@@ -4,6 +4,7 @@ using TMPro;
 using RobotSim.Sensors;
 using RobotSim.Simulation;
 using RosSharp.RosBridgeClient;
+using RosSharp.Urdf;
 using System.Collections;
 using System.Linq;
 
@@ -22,6 +23,7 @@ namespace RobotSim.UI
         [Header("Controllers")]
         public TargetJointController FKController;
         public TargetPoseController IKController;
+        public RobotSim.Control.RosJogAdapter RosJogAdapter; // Changed from LocalJogIKAdapter
 
         [Header("UI Roots (Auto-Found)")]
         public GameObject Sidebar;
@@ -51,6 +53,7 @@ namespace RobotSim.UI
             if (CamMount == null) CamMount = FindObjectOfType<VirtualCameraMount>();
             if (FKController == null) FKController = FindObjectOfType<TargetJointController>();
             if (IKController == null) IKController = FindObjectOfType<TargetPoseController>();
+            if (RosJogAdapter == null) RosJogAdapter = FindObjectOfType<RobotSim.Control.RosJogAdapter>();
 
             if (RobotBase == null)
             {
@@ -167,8 +170,9 @@ namespace RobotSim.UI
         public void SetMode(bool isFK)
         {
             _isFKMode = isFK;
-            if (FKController) FKController.enabled = isFK;
-            if (IKController) IKController.enabled = !isFK;
+            if (FKController) FKController.enabled = true; // Always enable FK
+            if (IKController) IKController.enabled = false; // Disable old IK
+            if (RosJogAdapter) RosJogAdapter.enabled = !isFK;
 
             UpdateTabVisuals(isFK);
         }
@@ -218,20 +222,38 @@ namespace RobotSim.UI
                     if (_isFKMode && FKController)
                     {
                         FKController.RotationSpeed = speed * 45f;
-                        FKController.MoveJoint(i, dir);
+                        // Use JogJoint (Velocity) for smooth movement instead of MoveJoint (Absolute Position)
+                        FKController.JogJoint(i, dir);
                     }
-                    else if (!_isFKMode && IKController)
+                    else if (!_isFKMode && RosJogAdapter)
                     {
-                        IKController.moveSpeed = speed * 0.5f;
-                        IKController.rotateSpeed = speed * 45f;
+                        // ROS Mode (Servo): Continuous Hold
+                        // RosJogAdapter.Jog handles "Hold" logic internally (tracks velocity).
+                        // We just need to assert "I am pressing".
+                        // Logic:
+                        // If Pressed, send Velocity.
+                        // If NOT Pressed, do nothing (RosJogAdapter will timeout/stop).
 
                         Vector3 lin = Vector3.zero;
                         Vector3 ang = Vector3.zero;
+                        float val = 0;
 
-                        if (i < 3) lin[i] = dir;
-                        else ang[i - 3] = dir;
+                        if (negJog.IsPressed) val = -1;
+                        if (posJog.IsPressed) val = 1;
 
-                        IKController.MoveTarget(lin, ang);
+                        if (val != 0)
+                        {
+                            // Sync speed multiplier with slider
+                            RosJogAdapter.SpeedMultiplier = speed;
+
+                            // Map row index to Linear/Angular axes
+                            // Rows 0,1,2 -> X,Y,Z (Linear)
+                            // Rows 3,4,5 -> Rx,Ry,Rz (Angular)
+                            if (i < 3) lin[i] = val;
+                            else ang[i - 3] = val;
+
+                            RosJogAdapter.Jog(lin, ang);
+                        }
                     }
                 }
             }
@@ -242,39 +264,91 @@ namespace RobotSim.UI
 
         private void UpdateFKDisplay()
         {
-            if (FKController == null || _rows == null) return;
-            double[] joints = FKController.GetCurrentJoints();
-            if (joints == null) return;
+            if (FKController == null || FKController.RobotRoot == null || _rows == null) return;
+            
+            // Access the publisher to get the correct order of joint names
+            var publisher = FKController.GetComponent<TargetJointPublisher>();
+            if (publisher == null) return;
+            string[] names = publisher.JointNames;
 
-            for (int i = 0; i < _rows.Length && i < joints.Length; i++)
+            // Find valid joints in the robot hierarchy
+            var joints = FKController.RobotRoot.GetComponentsInChildren<UrdfJoint>();
+
+            for (int i = 0; i < _rows.Length && i < names.Length; i++)
             {
                 if (_rows[i])
                 {
                     _rows[i].NameText.text = "J" + (i + 1);
-                    _rows[i].ValueText.text = (joints[i] * Mathf.Rad2Deg).ToString("F1") + "°";
+                    
+                    // Find the specific joint by name
+                    var targetJoint = joints.FirstOrDefault(j => j.JointName == names[i]);
+                    if (targetJoint != null)
+                    {
+                        // GetPosition usually returns Radians
+                        float angleDeg = (float)targetJoint.GetPosition() * Mathf.Rad2Deg;
+                        _rows[i].ValueText.text = angleDeg.ToString("F1") + "°";
+                    }
+                    else
+                    {
+                        _rows[i].ValueText.text = "--";
+                    }
                 }
             }
         }
 
         private void UpdateIKDisplay()
         {
-            if (IKController == null || _rows == null) return;
-            Vector3 pos = IKController.transform.localPosition;
-            Vector3 rot = IKController.transform.localEulerAngles;
+            if (_rows == null || _rows.Length < 6) return;
 
-            if (_rows.Length > 0) _rows[0].NameText.text = "X";
-            if (_rows.Length > 1) _rows[1].NameText.text = "Y";
-            if (_rows.Length > 2) _rows[2].NameText.text = "Z";
-            if (_rows.Length > 3) _rows[3].NameText.text = "Rx";
-            if (_rows.Length > 4) _rows[4].NameText.text = "Ry";
-            if (_rows.Length > 5) _rows[5].NameText.text = "Rz";
+            Transform tcp = null;
+            if (FKController != null && FKController.RobotRoot != null)
+            {
+                // Find tool0 or common end-effector links
+                tcp = FKController.RobotRoot.FindDeepChild("tool0");
+                if (tcp == null) tcp = FKController.RobotRoot.FindDeepChild("wrist_3_link");
+            }
 
-            if (_rows.Length > 0) _rows[0].ValueText.text = pos.x.ToString("F3");
-            if (_rows.Length > 1) _rows[1].ValueText.text = pos.y.ToString("F3");
-            if (_rows.Length > 2) _rows[2].ValueText.text = pos.z.ToString("F3");
-            if (_rows.Length > 3) _rows[3].ValueText.text = rot.x.ToString("F1") + "°";
-            if (_rows.Length > 4) _rows[4].ValueText.text = rot.y.ToString("F1") + "°";
-            if (_rows.Length > 5) _rows[5].ValueText.text = rot.z.ToString("F1") + "°";
+            if (tcp == null || RobotBase == null)
+            {
+                for (int i = 0; i < 6; i++) _rows[i].ValueText.text = "N/A";
+                return;
+            }
+
+            // 1. Calculate Relative Position (Unity Coords)
+            Vector3 relativePos = RobotBase.InverseTransformPoint(tcp.position);
+            
+            // 2. Map Unity to ROS Coordinates: 
+            // ROS X (Forward) = Unity Z
+            // ROS Y (Left) = Unity -X
+            // ROS Z (Up) = Unity Y
+            float rosX = relativePos.z;
+            float rosY = -relativePos.x;
+            float rosZ = relativePos.y;
+
+            // 3. Calculate Relative Rotation
+            Quaternion relativeRot = Quaternion.Inverse(RobotBase.rotation) * tcp.rotation;
+            Vector3 euler = relativeRot.eulerAngles;
+            // Normalizing to -180 to 180 for readability
+            if (euler.x > 180) euler.x -= 360;
+            if (euler.y > 180) euler.y -= 360;
+            if (euler.z > 180) euler.z -= 360;
+
+            // Labels
+            _rows[0].NameText.text = "X";
+            _rows[1].NameText.text = "Y";
+            _rows[2].NameText.text = "Z";
+            _rows[3].NameText.text = "Roll";
+            _rows[4].NameText.text = "Pitch";
+            _rows[5].NameText.text = "Yaw";
+
+            // Values
+            _rows[0].ValueText.text = rosX.ToString("F3");
+            _rows[1].ValueText.text = rosY.ToString("F3");
+            _rows[2].ValueText.text = rosZ.ToString("F3");
+            
+            _rows[3].ValueText.text = euler.x.ToString("F1") + "°";
+            _rows[4].ValueText.text = euler.y.ToString("F1") + "°";
+            _rows[5].ValueText.text = euler.z.ToString("F1") + "°";
         }
 
         public void SetCameraMount(bool isHandEye)

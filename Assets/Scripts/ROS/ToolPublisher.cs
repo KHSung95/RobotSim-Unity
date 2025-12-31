@@ -29,6 +29,7 @@ namespace RosSharp.RosBridgeClient
 
         protected override void Start()
         {
+            if (string.IsNullOrEmpty(Topic)) Topic = "/attached_collision_object";
             base.Start();
             
             if (string.IsNullOrEmpty(ToolId))
