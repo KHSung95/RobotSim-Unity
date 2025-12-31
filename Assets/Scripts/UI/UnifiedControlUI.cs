@@ -48,7 +48,9 @@ namespace RobotSim.UI
         
         // Modal References
         private GameObject _settingsModal;
-        private Button _settingsCloseBtn;
+        private TMP_InputField _settingsThreshold;
+        private bool _isHandEye = true;
+        private Button _settingsOkBtn;
 
         // Control Panel
         private GameObject _controlPanel;
@@ -84,7 +86,8 @@ namespace RobotSim.UI
             _settingsModal = uiRoot?.Find("SettingsModal")?.gameObject;
             if(_settingsModal != null)
             {
-                _settingsCloseBtn = FindUISub<Button>(_settingsModal, "Close");
+                _settingsThreshold = FindUISub<TMP_InputField>(_settingsModal, "Input_Threshold");
+                _settingsOkBtn = FindUISub<Button>(_settingsModal, "Button_Ok");
             }
 
             Sidebar = uiRoot?.Find("Sidebar")?.gameObject;
@@ -178,17 +181,31 @@ namespace RobotSim.UI
             }
             if (_settingsModal)
             {
+                var _settingsCloseBtn = _settingsModal.transform.FindDeepChild("Button_Cancel")?.gameObject?.GetComponent<Button>();
                 // Settings Modal 닫기 이벤트 추가
                 if (_settingsCloseBtn != null)
+                { 
+                    bindSettingModalClose(ref _settingsCloseBtn);
+                }
+                var _settingsXBtn = _settingsModal.transform.FindDeepChild("Button_X")?.gameObject?.GetComponent<Button>();
+                if (_settingsXBtn != null)
                 {
-                    _settingsCloseBtn.onClick.RemoveAllListeners();
-                    _settingsCloseBtn.onClick.AddListener(() => {
-                        _settingsModal.SetActive(false);
-                        // Navbar의 토글 상태도 해제하고 싶다면 아래 코드 추가
-                         if (_settingsToggle) _settingsToggle.isOn = false;
-                    });
+                    bindSettingModalClose(ref _settingsXBtn);
+                }
+                if (_settingsOkBtn)
+                {
+                    bindSettingModalClose(ref _settingsOkBtn);
                 }
             }
+        }
+
+        private void bindSettingModalClose(ref Button btn)
+        {
+            btn.onClick.RemoveAllListeners();
+            btn.onClick.AddListener(() => {
+                _settingsModal.SetActive(false);
+                if (_settingsToggle) _settingsToggle.isOn = false;
+            });
         }
 
         private void OnMasterModeChanged(bool isMaster)

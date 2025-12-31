@@ -259,41 +259,40 @@ namespace RobotSim.Editor
             }
 
             // 4. Settings Modal (Draggable) - Ensure it's a direct child of UIRoot
-            GameObject modal = CreatePanel(root.transform, "SettingsModal", Theme.BgPanel);
-            // Center, 400x300
-            Anchor(modal, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f));
-            modal.GetComponent<RectTransform>().sizeDelta = new Vector2(400, 300);
+            BuildSettingsModal(root.transform);
+            //GameObject modal = CreatePanel(root.transform, "SettingsModal", Theme.BgPanel);
+            //// Center, 400x300
+            //Anchor(modal, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f));
+            //modal.GetComponent<RectTransform>().sizeDelta = new Vector2(400, 300);
             
-            // Add Border/Shadow visual if possible (Outline for now)
-            var outline = modal.AddComponent<Outline>();
-            outline.effectColor = Theme.Accent;
-            outline.effectDistance = new Vector2(1, -1);
+            //// Add Border/Shadow visual if possible (Outline for now)
+            //var outline = modal.AddComponent<Outline>();
+            //outline.effectColor = Theme.Accent;
+            //outline.effectDistance = new Vector2(1, -1);
 
-            // Drag Handler
-            modal.AddComponent<RobotSim.UI.DragWindow>();
+            //// Drag Handler
+            //modal.AddComponent<RobotSim.UI.DragWindow>();
 
-            // 레이아웃 그룹 설정 최적화
-            var vModal = modal.AddComponent<VerticalLayoutGroup>();
-            vModal.padding = new RectOffset(10, 10, 10, 10);
-            vModal.spacing = 20;
-            vModal.childControlHeight = true; // 자식 높이 제어 활성화
-            vModal.childForceExpandHeight = false; // 강제 확장 비활성화
+            //// 레이아웃 그룹 설정 최적화
+            //var vModal = modal.AddComponent<VerticalLayoutGroup>();
+            //vModal.padding = new RectOffset(10, 10, 10, 10);
+            //vModal.spacing = 20;
+            //vModal.childControlHeight = true; // 자식 높이 제어 활성화
+            //vModal.childForceExpandHeight = false; // 강제 확장 비활성화
 
-            CreateText(modal.transform, "Settings", 20, FontStyles.Bold, Theme.TextMain).alignment = TextAlignmentOptions.Center;
+            //CreateText(modal.transform, "Settings", 20, FontStyles.Bold, Theme.TextMain).alignment = TextAlignmentOptions.Center;
             
-            // Placeholder Content
-            CreateText(modal.transform, "Robot IP Address:", 14, FontStyles.Normal, Theme.TextDim);
-            var ipInput = CreatePanel(modal.transform, "Input_IP", Color.black);
-            ipInput.GetComponent<LayoutElement>().minHeight = 30;
+            //// Placeholder Content
+            //CreateText(modal.transform, "Robot IP Address:", 14, FontStyles.Normal, Theme.TextDim);
+            //var ipInput = CreatePanel(modal.transform, "Input_IP", Color.black);
+            //ipInput.GetComponent<LayoutElement>().minHeight = 30;
             
-            // Close Button area
-            GameObject space = new GameObject("Spacer", typeof(RectTransform), typeof(LayoutElement));
-            space.transform.SetParent(modal.transform, false);
-            space.GetComponent<LayoutElement>().flexibleHeight = 1;
+            //// Close Button area
+            //GameObject space = new GameObject("Spacer", typeof(RectTransform), typeof(LayoutElement));
+            //space.transform.SetParent(modal.transform, false);
+            //space.GetComponent<LayoutElement>().flexibleHeight = 1;
 
-            var closeBtn = CreateBigButton(modal.transform, "Close", "CLOSE", Theme.TextDim);
-
-            modal.SetActive(false); // Hidden by default
+            //var closeBtn = CreateBigButton(modal.transform, "Close", "CLOSE", Theme.TextDim);
         }
 
         // --- Helpers ---
@@ -557,6 +556,161 @@ namespace RobotSim.Editor
             sliderComp.handleRect = handle.GetComponent<RectTransform>();
             sliderComp.targetGraphic = handle.GetComponent<Image>();
             sliderComp.value = 0.5f;
+        }
+
+        private static void BuildSettingsModal(Transform root)
+        {
+            // 1. 모달 루트 및 레이아웃 설정
+            GameObject modal = CreatePanel(root, "SettingsModal", Theme.BgPanel);
+            Anchor(modal, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f));
+            var rt = modal.GetComponent<RectTransform>();
+            rt.sizeDelta = new Vector2(420, 0);
+
+            var csf = modal.AddComponent<ContentSizeFitter>();
+            csf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            var vModal = modal.AddComponent<VerticalLayoutGroup>();
+            vModal.childControlWidth = true;
+            vModal.childControlHeight = true;
+            vModal.childForceExpandHeight = false;
+
+            // --- A. 상단 제목 표시줄 (TitleBar) ---
+            var titleBar = CreateRow(modal.transform, "TitleBar");
+            titleBar.AddComponent<Image>().color = Theme.BgMain;
+            var tbLayout = titleBar.GetComponent<HorizontalLayoutGroup>();
+
+            // 패딩과 정렬 설정
+            tbLayout.padding = new RectOffset(15, 0, 0, 0); // 오른쪽 끝 밀착을 위해 padding.right는 0
+            tbLayout.spacing = 0;
+            tbLayout.childControlWidth = true;
+            tbLayout.childControlHeight = true;
+            tbLayout.childForceExpandWidth = false; // 자식들이 전체 너비를 채우도록 설정
+            titleBar.GetComponent<LayoutElement>().minHeight = 38;
+
+            // [A-Left] 아이콘과 제목을 묶을 왼쪽 그룹 생성
+            var leftGroup = new GameObject("LeftContent", typeof(RectTransform), typeof(HorizontalLayoutGroup));
+            leftGroup.transform.SetParent(titleBar.transform, false);
+            var lgLayout = leftGroup.GetComponent<HorizontalLayoutGroup>();
+            lgLayout.spacing = 8;
+            lgLayout.childControlWidth = true;
+            lgLayout.childControlHeight = true;
+            lgLayout.childForceExpandWidth = false; // 내용물 크기만큼만 차지
+            lgLayout.childForceExpandHeight = false; // 내용물 크기만큼만 차지
+            lgLayout.childAlignment = TextAnchor.MiddleLeft;
+
+            // 이 그룹이 모든 남은 공간을 차지하게 하여 버튼을 우측으로 밀어냄
+            var lgLE = leftGroup.AddComponent<LayoutElement>();
+            lgLE.flexibleWidth = 1;
+
+            // A-1. 설정 아이콘 (leftGroup의 자식으로 변경)
+            GameObject iconObj = new GameObject("Icon", typeof(RectTransform), typeof(Image));
+            iconObj.transform.SetParent(leftGroup.transform, false);
+            var iconImg = iconObj.GetComponent<Image>();
+            iconImg.sprite = Resources.Load<Sprite>("Setting_On");
+            iconImg.raycastTarget = false;
+            var iconLE = iconObj.AddComponent<LayoutElement>();
+            iconLE.preferredWidth = 18; iconLE.preferredHeight = 18;
+
+            // A-2. 제목 텍스트 (leftGroup의 자식으로 변경)
+            var titleTxt = CreateText(leftGroup.transform, "Settings", 14, FontStyles.Normal, Theme.TextMain);
+            titleTxt.GetComponent<LayoutElement>().flexibleWidth = 0;
+
+            // A-3. 우측 끝 X 버튼 (titleBar의 직계 자식, flexibleWidth를 0으로 설정)
+            var xBtn = CreateSmallBtn(titleBar.transform, "Button_X", "X");
+            var xBtnLE = xBtn.GetComponent<LayoutElement>();
+            xBtnLE.preferredWidth = 38;
+            xBtnLE.preferredHeight = 38;
+            xBtnLE.flexibleWidth = 0; // 버튼은 필요한 크기만 차지
+            xBtn.GetComponent<Image>().color = Color.clear;
+
+            // --- B. 메인 컨텐츠 영역 ---
+            var content = new GameObject("Content", typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
+            content.transform.SetParent(modal.transform, false);
+            var vContent = content.GetComponent<VerticalLayoutGroup>();
+            vContent.padding = new RectOffset(25, 25, 25, 20);
+            vContent.spacing = 22;
+            vContent.childControlWidth = true; vContent.childControlHeight = true;
+            content.GetComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            // B-1. Threshold 입력 행
+            var row1 = CreateRow(content.transform, "ThresholdRow");
+            CreateText(row1.transform, "Max Deviation Threshold:", 14, FontStyles.Normal, Theme.TextMain);
+            
+            // InputField Creation
+            var inputField = CreateInputField(row1.transform, "Input_Threshold", "2.0");
+            inputField.GetComponent<LayoutElement>().preferredWidth = 75;
+            inputField.GetComponent<LayoutElement>().minHeight = 26;
+
+            CreateText(row1.transform, "mm", 14, FontStyles.Normal, Theme.TextDim).GetComponent<LayoutElement>().preferredWidth = 30;
+
+            // B-2. Mounting 행
+            var row2 = CreateRow(content.transform, "MountingRow");
+            row2.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
+            // row2의 높이가 토글 높이(40)보다 작아서 짤리는 현상 방지: flex/minHeight 조정
+            row2.GetComponent<LayoutElement>().minHeight = 30; 
+
+            CreateText(row2.transform, "Camera Mounting:", 14, FontStyles.Normal, Theme.TextMain);
+
+            var toggleArea = new GameObject("ToggleArea", typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(ToggleGroup), typeof(ContentSizeFitter));
+            toggleArea.transform.SetParent(row2.transform, false);
+            var vToggle = toggleArea.GetComponent<VerticalLayoutGroup>();
+            vToggle.spacing = 10; vToggle.childAlignment = TextAnchor.UpperRight;
+            vToggle.childControlHeight = true;
+            toggleArea.GetComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            
+            var tGroup = toggleArea.GetComponent<ToggleGroup>();
+
+            // Visual Manager 추가
+            var visualManager = toggleArea.AddComponent<RobotSim.UI.ToggleTabManager>();
+            
+            // Toggle Height 18
+            var t1 = CreateInteractiveToggle(toggleArea.transform, "Bird-eye", true, 18, tGroup);
+            var t2 = CreateInteractiveToggle(toggleArea.transform, "Hand-eye", false, 18, tGroup);
+
+            visualManager.Tabs = new List<RobotSim.UI.ToggleTabManager.TabItem> { t1, t2 };
+            visualManager.Initialize(); // Initialize visuals immediately
+
+            // --- C. 하단 버튼 영역 (Footer) ---
+            var footer = CreateRow(content.transform, "Footer");
+            footer.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleRight;
+            footer.GetComponent<HorizontalLayoutGroup>().spacing = 12;
+
+            var okBtn = CreateBigButton(footer.transform, "Button_Ok", "OK", Theme.BgSec);
+            okBtn.GetComponent<LayoutElement>().preferredWidth = 90;
+
+            var cancelBtn = CreateBigButton(footer.transform, "Button_Cancel", "Cancel", Theme.BgSec);
+            cancelBtn.GetComponent<LayoutElement>().preferredWidth = 90;
+
+            modal.SetActive(false);
+        }
+
+        private static GameObject CreateInputField(Transform p, string n, string defaultVal)
+        {
+            GameObject o = CreatePanel(p, n, Color.black);
+            var ifComponent = o.AddComponent<TMP_InputField>();
+            
+            // Text Area (Child)
+            GameObject textArea = new GameObject("TextArea", typeof(RectTransform));
+            textArea.transform.SetParent(o.transform, false);
+            Anchor(textArea, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f));
+            var rt = textArea.GetComponent<RectTransform>();
+            rt.offsetMin = new Vector2(5, 5); rt.offsetMax = new Vector2(-5, -5);
+
+            // Text Component
+            GameObject textObj = new GameObject("Text", typeof(RectTransform), typeof(TextMeshProUGUI));
+            textObj.transform.SetParent(textArea.transform, false);
+            Anchor(textObj, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f));
+            var txt = textObj.GetComponent<TextMeshProUGUI>();
+            txt.fontSize = 14; 
+            txt.color = Theme.TextMain;
+            txt.alignment = TextAlignmentOptions.Center;
+
+            ifComponent.textViewport = textArea.GetComponent<RectTransform>();
+            ifComponent.textComponent = txt;
+            ifComponent.text = defaultVal;
+            ifComponent.targetGraphic = o.GetComponent<Image>(); 
+
+            return o;
         }
     }
 }
