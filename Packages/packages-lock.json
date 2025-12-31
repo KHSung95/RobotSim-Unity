@@ -58,6 +58,12 @@
       },
       "url": "https://packages.unity.com"
     },
+    "com.unity.cinemachine": {
+      "version": "file:C:/Users/bug95/Downloads/com.unity.cinemachine-release-2.8.6/com.unity.cinemachine-release-2.8.6",
+      "depth": 0,
+      "source": "local",
+      "dependencies": {}
+    },
     "com.unity.collab-proxy": {
       "version": "2.7.1",
       "depth": 0,

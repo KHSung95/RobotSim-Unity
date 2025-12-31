@@ -2,11 +2,9 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using RobotSim.Sensors;
+using RobotSim.Robot;
 using RobotSim.Simulation;
-using RosSharp.RosBridgeClient;
-using RosSharp.Urdf;
-using System.Collections;
-using System.Linq;
+using RobotSim.Utils;
 
 namespace RobotSim.UI
 {
@@ -21,26 +19,39 @@ namespace RobotSim.UI
         public Transform RobotBase;
 
         [Header("Controllers")]
-        public TargetJointController FKController;
-        public TargetPoseController IKController;
-        public RobotSim.Control.RosJogAdapter RosJogAdapter; // Changed from LocalJogIKAdapter
+        public Robot.RobotStateProvider StateProvider;
+        public Control.RosJogAdapter RosJogAdapter;
 
-        [Header("UI Roots (Auto-Found)")]
-        public GameObject Sidebar;
-        public GameObject ConsolePanel;
-        public GameObject SettingsModal;
+        private GameObject Navbar;
+        private Toggle _settingsToggle, _masterToggle;
 
+        private GameObject ConsolePanel;
+
+        private GameObject Sidebar;
+        
         // Vision Reference
         private RawImage _visionFeed;
         private Toggle _rgbToggle, _depthToggle;
 
         // Operation References
+        private Button _captureMasterBtn;
         private Button _captureBtn, _guidanceBtn;
 
         // Jogging References
         private bool _isFKMode = true;
+        private Toggle _fkToggle, _ikToggle;
         private Slider _speedSlider;
         private Button _eStopBtn;
+
+        // Panel Switch References (Modules)
+        private GameObject _operationModule;
+        private GameObject _masterModule;
+        
+        // Modal References
+        private GameObject _settingsModal;
+        private TMP_InputField _settingsThreshold;
+        private bool _isHandEye = true;
+        private Button _settingsOkBtn;
 
         // Control Panel
         private GameObject _controlPanel;
@@ -51,9 +62,8 @@ namespace RobotSim.UI
             if (Guidance == null) Guidance = FindObjectOfType<GuidanceManager>();
             if (PCG == null) PCG = FindObjectOfType<PointCloudGenerator>();
             if (CamMount == null) CamMount = FindObjectOfType<VirtualCameraMount>();
-            if (FKController == null) FKController = FindObjectOfType<TargetJointController>();
-            if (IKController == null) IKController = FindObjectOfType<TargetPoseController>();
-            if (RosJogAdapter == null) RosJogAdapter = FindObjectOfType<RobotSim.Control.RosJogAdapter>();
+            if (RosJogAdapter == null) RosJogAdapter = FindFirstObjectByType<RobotSim.Control.RosJogAdapter>(FindObjectsInactive.Include);
+            if (StateProvider == null) StateProvider = FindFirstObjectByType<RobotStateProvider>(FindObjectsInactive.Include);
 
             if (RobotBase == null)
             {
@@ -65,21 +75,50 @@ namespace RobotSim.UI
             // Find UI Roots more robustly
             var canvas = FindObjectOfType<Canvas>();
             Transform uiRoot = canvas?.transform.Find("UIRoot");
-            Sidebar = uiRoot?.Find("Sidebar")?.gameObject;
+            Navbar = uiRoot?.Find("Navbar")?.gameObject;
+            if(Navbar != null)
+            {
+                _settingsToggle = FindUISub<Toggle>(Navbar, "Button_Settings");
+                _masterToggle = FindUISub<Toggle>(Navbar, "Button_Master");
+            }
+
             ConsolePanel = uiRoot?.Find("Console")?.gameObject;
 
+            _settingsModal = uiRoot?.Find("SettingsModal")?.gameObject;
+            if(_settingsModal != null)
+            {
+                _settingsThreshold = FindUISub<TMP_InputField>(_settingsModal, "Input_Threshold");
+                _settingsOkBtn = FindUISub<Button>(_settingsModal, "Button_Ok");
+            }
+
+            Sidebar = uiRoot?.Find("Sidebar")?.gameObject;
             if (Sidebar != null)
             {
-                Debug.Log($"<b>[UnifiedControlUI]</b> Sidebar found: {Sidebar.name}");
-                _visionFeed = FindUISub<RawImage>(Sidebar.transform, "Feed");
-                _rgbToggle = FindUISub<Toggle>(Sidebar.transform, "Toggle_RGB");
-                _depthToggle = FindUISub<Toggle>(Sidebar.transform, "Toggle_Depth");
+                _visionFeed = FindUISub<RawImage>(Sidebar, "Feed");
+                _rgbToggle = FindUISub<Toggle>(Sidebar, "Toggle_RGB");
+                _depthToggle = FindUISub<Toggle>(Sidebar, "Toggle_Depth");
 
-                _captureBtn = FindUISub<Button>(Sidebar.transform, "Capture");
-                _guidanceBtn = FindUISub<Button>(Sidebar.transform, "Guidance");
+                // Find Modules by Name (created by UIBuilder as title + "_Module")
+                _operationModule = Sidebar.transform.FindDeepChild("OPERATION MODE_Module")?.gameObject;
+                if(_operationModule)
+                {
+                    _captureBtn = FindUISub<Button>(_operationModule, "Capture");
+                    _guidanceBtn = FindUISub<Button>(_operationModule, "Guidance");
+                }
+                _masterModule = Sidebar.transform.FindDeepChild("MASTER MODE_Module")?.gameObject;
+                if(_masterModule)
+                {
+                    _captureMasterBtn = FindUISub<Button>(_masterModule, "CaptureMaster");
+                }
+                // Initialize state
+                if (_masterModule) _masterModule.SetActive(false);
+                if (_operationModule) _operationModule.SetActive(true);
 
-                _speedSlider = FindUISub<Slider>(Sidebar.transform, "SpeedSlider");
-                _eStopBtn = FindUISub<Button>(Sidebar.transform, "EStop");
+                _fkToggle = FindUISub<Toggle>(Sidebar, "Toggle_FK");
+                _ikToggle = FindUISub<Toggle>(Sidebar, "Toggle_IK");
+
+                _speedSlider = FindUISub<Slider>(Sidebar, "SpeedSlider");
+                _eStopBtn = FindUISub<Button>(Sidebar, "EStop");
 
                 _controlPanel = Sidebar.transform.FindDeepChild("ControlPanel")?.gameObject;
                 
@@ -109,27 +148,80 @@ namespace RobotSim.UI
             jog.Direction = dir;
         }
 
-        private T FindUISub<T>(Transform root, string name) where T : Component
+        private T FindUISub<T>(GameObject root, string name) where T : Component
         {
-            var t = root.FindDeepChild(name);
+            var t = root.transform.FindDeepChild(name);
             return t != null ? t.GetComponent<T>() : null;
         }
 
         private void BindEvents()
         {
             if (Sidebar == null) return;
-            var tabs = Sidebar.transform.FindDeepChild("Tabs");
-            var fkTab = tabs?.Find("FK")?.GetComponent<Button>();
-            var ikTab = tabs?.Find("IK")?.GetComponent<Button>();
+            
+            if (_fkToggle) _fkToggle.onValueChanged.AddListener((v) => { if (v) SetMode(true); });
+            if (_ikToggle) _ikToggle.onValueChanged.AddListener((v) => { if (v) SetMode(false); });
 
-            if (fkTab) fkTab.onClick.AddListener(() => SetMode(true));
-            if (ikTab) ikTab.onClick.AddListener(() => SetMode(false));
-
-            if (_captureBtn) _captureBtn.onClick.AddListener(() => Guidance?.CaptureMaster());
+            if (_captureBtn) _captureBtn.onClick.AddListener(() =>
+            {
+                Guidance?.CaptureCurrent();
+            });
             if (_guidanceBtn) _guidanceBtn.onClick.AddListener(() => Guidance?.RunGuidance());
-
+            
+            if (_captureMasterBtn) _captureMasterBtn.onClick.AddListener(() =>
+            {
+                Guidance?.CaptureMaster();
+            });
             if (_rgbToggle) _rgbToggle.onValueChanged.AddListener((v) => { if (v) SetVisionMode(true); });
             if (_depthToggle) _depthToggle.onValueChanged.AddListener((v) => { if (v) SetVisionMode(false); });
+
+            if (Navbar)
+            {
+                if (_masterToggle)
+                {
+                    _masterToggle.onValueChanged.AddListener(OnMasterModeChanged);
+                }
+                
+                if (_settingsToggle)
+                {
+                    _settingsToggle.onValueChanged.AddListener((v) => {
+                         if (_settingsModal) _settingsModal.SetActive(v);
+                    });
+                }
+            }
+            if (_settingsModal)
+            {
+                var _settingsCloseBtn = _settingsModal.transform.FindDeepChild("Button_Cancel")?.gameObject?.GetComponent<Button>();
+                // Settings Modal 닫기 이벤트 추가
+                if (_settingsCloseBtn != null)
+                { 
+                    bindSettingModalClose(ref _settingsCloseBtn);
+                }
+                var _settingsXBtn = _settingsModal.transform.FindDeepChild("Button_X")?.gameObject?.GetComponent<Button>();
+                if (_settingsXBtn != null)
+                {
+                    bindSettingModalClose(ref _settingsXBtn);
+                }
+                if (_settingsOkBtn)
+                {
+                    bindSettingModalClose(ref _settingsOkBtn);
+                }
+            }
+        }
+
+        private void bindSettingModalClose(ref Button btn)
+        {
+            btn.onClick.RemoveAllListeners();
+            btn.onClick.AddListener(() => {
+                _settingsModal.SetActive(false);
+                if (_settingsToggle) _settingsToggle.isOn = false;
+            });
+        }
+
+        private void OnMasterModeChanged(bool isMaster)
+        {
+            // Switch entire modules
+            if (_operationModule) _operationModule.SetActive(!isMaster);
+            if (_masterModule) _masterModule.SetActive(isMaster);
         }
 
         public void SetVisionMode(bool isRGB)
@@ -137,10 +229,11 @@ namespace RobotSim.UI
             if (_rgbToggle) _rgbToggle.SetIsOnWithoutNotify(isRGB);
             if (_depthToggle) _depthToggle.SetIsOnWithoutNotify(!isRGB);
 
-            var camObj = GameObject.Find("VisionCamera");
-            if (camObj != null)
+            // Sync visuals manually since we used SetIsOnWithoutNotify
+            _rgbToggle?.GetComponentInParent<ToggleTabManager>()?.UpdateVisuals();
+            if (CamMount != null)
             {
-                var cam = camObj.GetComponent<Camera>();
+                var cam = CamMount.GetComponent<Camera>();
                 if (cam)
                 {
                     if (cam.targetTexture == null)
@@ -170,34 +263,39 @@ namespace RobotSim.UI
         public void SetMode(bool isFK)
         {
             _isFKMode = isFK;
-            if (FKController) FKController.enabled = true; // Always enable FK
-            if (IKController) IKController.enabled = false; // Disable old IK
-            if (RosJogAdapter) RosJogAdapter.enabled = !isFK;
+            
+            // Sync toggles without triggering events
+            if (_fkToggle) _fkToggle.SetIsOnWithoutNotify(isFK);
+            if (_ikToggle) _ikToggle.SetIsOnWithoutNotify(!isFK);
 
-            UpdateTabVisuals(isFK);
+            // Sync visuals manually since we used SetIsOnWithoutNotify
+            _fkToggle?.GetComponentInParent<ToggleTabManager>()?.UpdateVisuals();
+
+            InitializeLabels(isFK);
         }
 
-        private void UpdateTabVisuals(bool isFK)
+        private void InitializeLabels(bool isFK)
         {
-            if (Sidebar == null) return;
-            var tabs = Sidebar.transform.FindDeepChild("Tabs");
-            if (tabs == null) return;
-
-            var fkTabImg = tabs.Find("FK")?.GetComponent<Image>();
-            var ikTabImg = tabs.Find("IK")?.GetComponent<Image>();
-
-            Color accent = new Color(0f, 0.8f, 1f, 1f);
-            Color bg = new Color(0.12f, 0.12f, 0.15f, 1f);
-
-            if (fkTabImg) fkTabImg.color = isFK ? accent : bg;
-            if (ikTabImg) ikTabImg.color = !isFK ? accent : bg;
-
-            var fkTxt = fkTabImg?.GetComponentInChildren<TextMeshProUGUI>();
-            var ikTxt = ikTabImg?.GetComponentInChildren<TextMeshProUGUI>();
-
-            if (fkTxt) fkTxt.color = isFK ? Color.black : Color.white;
-            if (ikTxt) ikTxt.color = !isFK ? Color.black : Color.white;
+            if (_rows == null) return;
+            if (isFK)
+            {
+                // Revert to original generic names
+                for (int i = 0; i < _rows.Length; i++)
+                {
+                    _rows[i].NameText.text = "J" + (i + 1);
+                }
+            }
+            else
+            {
+                // Use Rx, Ry, Rz instead of Pitch/Yaw/Roll
+                string[] ikLabels = { "X", "Y", "Z", "Rx", "Ry", "Rz" };
+                for (int i = 0; i < _rows.Length && i < ikLabels.Length; i++)
+                {
+                    _rows[i].NameText.text = ikLabels[i];
+                }
+            }
         }
+
 
         private void Update()
         {
@@ -217,138 +315,82 @@ namespace RobotSim.UI
                 if (negJog != null && negJog.IsPressed) dir = -1;
                 if (posJog != null && posJog.IsPressed) dir = 1;
 
-                if (dir != 0)
+                if (dir != 0 && RosJogAdapter != null)
                 {
-                    if (_isFKMode && FKController)
-                    {
-                        FKController.RotationSpeed = speed * 45f;
-                        // Use JogJoint (Velocity) for smooth movement instead of MoveJoint (Absolute Position)
-                        FKController.JogJoint(i, dir);
-                    }
-                    else if (!_isFKMode && RosJogAdapter)
-                    {
-                        // ROS Mode (Servo): Continuous Hold
-                        // RosJogAdapter.Jog handles "Hold" logic internally (tracks velocity).
-                        // We just need to assert "I am pressing".
-                        // Logic:
-                        // If Pressed, send Velocity.
-                        // If NOT Pressed, do nothing (RosJogAdapter will timeout/stop).
+                    // Sync speed multiplier with slider
+                    RosJogAdapter.SpeedMultiplier = speed;
 
+                    if (_isFKMode)
+                    {
+                        // FK Mode: Joint Jogging via MoveIt Servo
+                        RosJogAdapter.JointJog(i, dir);
+                    }
+                    else
+                    {
+                        // IK Mode: Cartesian Jogging via MoveIt Servo (Twist)
+                        // Align UI interactions with ROS coordinate display (X, Y, Z, Rx, Ry, Rz)
                         Vector3 lin = Vector3.zero;
                         Vector3 ang = Vector3.zero;
-                        float val = 0;
+                        
+                        // Based on RobotStateProvider.cs conversion:
+                        // ROS X (Forward) = Unity Z
+                        // ROS Y (Left)    = Unity -X
+                        // ROS Z (Up)      = Unity Y
+                        
+                        if (i == 0) // UI X (ROS X)
+                            lin.z = dir;
+                        else if (i == 1) // UI Y (ROS Y)
+                            lin.x = -dir;
+                        else if (i == 2) // UI Z (ROS Z)
+                            lin.y = dir;
+                        else if (i == 3) // UI Rx (ROS Rx)
+                            ang.z = dir;
+                        else if (i == 4) // UI Ry (ROS Ry)
+                            ang.x = -dir;
+                        else if (i == 5) // UI Rz (ROS Rz)
+                            ang.y = dir;
 
-                        if (negJog.IsPressed) val = -1;
-                        if (posJog.IsPressed) val = 1;
-
-                        if (val != 0)
-                        {
-                            // Sync speed multiplier with slider
-                            RosJogAdapter.SpeedMultiplier = speed;
-
-                            // Map row index to Linear/Angular axes
-                            // Rows 0,1,2 -> X,Y,Z (Linear)
-                            // Rows 3,4,5 -> Rx,Ry,Rz (Angular)
-                            if (i < 3) lin[i] = val;
-                            else ang[i - 3] = val;
-
-                            RosJogAdapter.Jog(lin, ang);
-                        }
+                        RosJogAdapter.Jog(lin, ang);
                     }
                 }
             }
 
-            if (_isFKMode) UpdateFKDisplay();
-            else UpdateIKDisplay();
+            // Only update the active display to prevent overwriting shared text fields
+            if (_isFKMode)
+                UpdateFKDisplay();
+            else
+                UpdateIKDisplay();
         }
 
         private void UpdateFKDisplay()
         {
-            if (FKController == null || FKController.RobotRoot == null || _rows == null) return;
-            
-            // Access the publisher to get the correct order of joint names
-            var publisher = FKController.GetComponent<TargetJointPublisher>();
-            if (publisher == null) return;
-            string[] names = publisher.JointNames;
+            if (_rows == null || _rows.Length < 6 || StateProvider == null) return;
 
-            // Find valid joints in the robot hierarchy
-            var joints = FKController.RobotRoot.GetComponentsInChildren<UrdfJoint>();
+            float[] jointAngles = StateProvider.JointAnglesDegrees;
+            if (jointAngles == null || jointAngles.Length < 6) return;
 
-            for (int i = 0; i < _rows.Length && i < names.Length; i++)
+            for (int i = 0; i < 6; i++)
             {
-                if (_rows[i])
-                {
-                    _rows[i].NameText.text = "J" + (i + 1);
-                    
-                    // Find the specific joint by name
-                    var targetJoint = joints.FirstOrDefault(j => j.JointName == names[i]);
-                    if (targetJoint != null)
-                    {
-                        // GetPosition usually returns Radians
-                        float angleDeg = (float)targetJoint.GetPosition() * Mathf.Rad2Deg;
-                        _rows[i].ValueText.text = angleDeg.ToString("F1") + "°";
-                    }
-                    else
-                    {
-                        _rows[i].ValueText.text = "--";
-                    }
-                }
+                _rows[i].ValueText.text = $"{jointAngles[i]:F1}°";
             }
         }
 
         private void UpdateIKDisplay()
         {
-            if (_rows == null || _rows.Length < 6) return;
+            if (_rows == null || _rows.Length < 6 || StateProvider == null) return;
 
-            Transform tcp = null;
-            if (FKController != null && FKController.RobotRoot != null)
-            {
-                // Find tool0 or common end-effector links
-                tcp = FKController.RobotRoot.FindDeepChild("tool0");
-                if (tcp == null) tcp = FKController.RobotRoot.FindDeepChild("wrist_3_link");
-            }
+            Vector3 pos = StateProvider.TcpPositionRos;
+            Vector3 rot = StateProvider.TcpRotationEulerRos;
 
-            if (tcp == null || RobotBase == null)
-            {
-                for (int i = 0; i < 6; i++) _rows[i].ValueText.text = "N/A";
-                return;
-            }
+            // X, Y, Z (m -> mm)
+            _rows[0].ValueText.text = $"{(pos.x * 1000):F1}";
+            _rows[1].ValueText.text = $"{(pos.y * 1000):F1}";
+            _rows[2].ValueText.text = $"{(pos.z * 1000):F1}";
 
-            // 1. Calculate Relative Position (Unity Coords)
-            Vector3 relativePos = RobotBase.InverseTransformPoint(tcp.position);
-            
-            // 2. Map Unity to ROS Coordinates: 
-            // ROS X (Forward) = Unity Z
-            // ROS Y (Left) = Unity -X
-            // ROS Z (Up) = Unity Y
-            float rosX = relativePos.z;
-            float rosY = -relativePos.x;
-            float rosZ = relativePos.y;
-
-            // 3. Calculate Relative Rotation
-            Quaternion relativeRot = Quaternion.Inverse(RobotBase.rotation) * tcp.rotation;
-            Vector3 euler = relativeRot.eulerAngles;
-            // Normalizing to -180 to 180 for readability
-            if (euler.x > 180) euler.x -= 360;
-            if (euler.y > 180) euler.y -= 360;
-            if (euler.z > 180) euler.z -= 360;
-
-            // Labels
-            _rows[0].NameText.text = "X";
-            _rows[1].NameText.text = "Y";
-            _rows[2].NameText.text = "Z";
-            _rows[3].NameText.text = "Roll";
-            _rows[4].NameText.text = "Pitch";
-            _rows[5].NameText.text = "Yaw";
-
-            // Values
-            _rows[0].ValueText.text = rosX.ToString("F3");
-            _rows[1].ValueText.text = rosY.ToString("F3");
-            _rows[2].ValueText.text = rosZ.ToString("F3");
-            
-            _rows[3].ValueText.text = euler.x.ToString("F1") + "°";
-            _rows[4].ValueText.text = euler.y.ToString("F1") + "°";
-            _rows[5].ValueText.text = euler.z.ToString("F1") + "°";
+            // R, P, Y (Euler)
+            _rows[3].ValueText.text = $"{rot.x:F1}";
+            _rows[4].ValueText.text = $"{rot.y:F1}";
+            _rows[5].ValueText.text = $"{rot.z:F1}";
         }
 
         public void SetCameraMount(bool isHandEye)
@@ -357,18 +399,4 @@ namespace RobotSim.UI
         }
     }
 
-    public static class TransformDeepChildExtension
-    {
-        public static Transform FindDeepChild(this Transform aParent, string aName)
-        {
-            var result = aParent.Find(aName);
-            if (result != null) return result;
-            foreach (Transform child in aParent)
-            {
-                result = child.FindDeepChild(aName);
-                if (result != null) return result;
-            }
-            return null;
-        }
-    }
 }
