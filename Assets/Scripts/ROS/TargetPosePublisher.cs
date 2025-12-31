@@ -1,8 +1,8 @@
 using System;
 using UnityEngine;
-using RosSharp.RosBridgeClient;
-using PoseStamped = RosSharp.RosBridgeClient.MessageTypes.Geometry.PoseStamped;
+using RobotSim.Robot;
 using RosSharp.RosBridgeClient.MessageTypes.Std;
+using PoseStamped = RosSharp.RosBridgeClient.MessageTypes.Geometry.PoseStamped;
 
 namespace RosSharp.RosBridgeClient
 {
@@ -22,6 +22,17 @@ namespace RosSharp.RosBridgeClient
         protected override void Start()
         {
             if (string.IsNullOrEmpty(Topic)) Topic = "/unity/target_pose";
+            
+            // Architectural Sync: Get frame and reference from the Model (RobotStateProvider)
+            var stateProvider = GetComponentInParent<RobotStateProvider>();
+            if (stateProvider == null) stateProvider = FindFirstObjectByType<RobotStateProvider>();
+            
+            if (stateProvider != null)
+            {
+                if (ReferenceObject == null) ReferenceObject = stateProvider.RobotBase;
+                FrameId = stateProvider.BaseFrameId;
+            }
+
             base.Start();
             InitializeMessage();
         }

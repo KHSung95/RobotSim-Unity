@@ -1,8 +1,11 @@
 using UnityEngine;
-using RosSharp.RosBridgeClient.MessageTypes.Control; // For namespace, but we use our custom class
-using RosSharp.RosBridgeClient.MessageTypes.Std;
+using RobotSim.Robot;
 
-namespace RosSharp.RosBridgeClient
+using RosSharp.RosBridgeClient;
+using RosSharp.RosBridgeClient.MessageTypes.Std;
+using RosSharp.RosBridgeClient.MessageTypes.Control;
+
+namespace RobotSim.ROS
 {
     // Using JointJogRos2 instead of the standard JointJog
     public class JointJogPublisher : UnityPublisher<JointJogRos2>
@@ -10,8 +13,8 @@ namespace RosSharp.RosBridgeClient
         [Header("ROS Settings")]
         public string FrameId = "base_link";
 
-        [Header("Joint Settings")]
-        public string[] JointNames = { "shoulder_pan_joint", "shoulder_lift_joint", "elbow_joint", "wrist_1_joint", "wrist_2_joint", "wrist_3_joint" };
+        // Joint Settings (Automated via RobotStateProvider)
+        private string[] JointNames;
         
         private JointJogRos2 message;
 
@@ -19,10 +22,14 @@ namespace RosSharp.RosBridgeClient
         {
             if (string.IsNullOrEmpty(Topic)) Topic = "/unity/joint_jog";
             
-            // Sync joint names with TargetJointPublisher if available
-            var tj = GetComponent<TargetJointPublisher>();
-            if (tj != null) JointNames = tj.JointNames;
-
+            // Architectural Sync: Get joint names from the Model (RobotStateProvider)
+            var stateProvider = GetComponent<RobotStateProvider>();
+            if (stateProvider != null)
+            {
+                if (stateProvider.JointNames == null) stateProvider.InitializeReferences();
+                JointNames = stateProvider.JointNames;
+                FrameId = stateProvider.BaseFrameId;
+            }
             base.Start();
             InitializeMessage();
         }

@@ -35,9 +35,7 @@ namespace RobotSim.ROS
             
             // Populating proper ROS timestamp
             // Note: If using ClockPublisher, this matches the /clock topic
-            uint secs = (uint)UnityEngine.Time.time;
-            uint nsecs = (uint)((UnityEngine.Time.time - secs) * 1e9);
-            msg.header.stamp = new RosSharp.RosBridgeClient.MessageTypes.BuiltinInterfaces.Time((int)secs, nsecs);
+            msg.header.Update();
 
             Publish(msg);
         }

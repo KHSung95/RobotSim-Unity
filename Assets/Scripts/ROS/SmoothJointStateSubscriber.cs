@@ -4,27 +4,24 @@ using RosSharp.RosBridgeClient;
 using RosSharp.RosBridgeClient.MessageTypes.Sensor;
 using RosSharp.Urdf;
 
-namespace RobotSim.ROS
+namespace RobotSim.Robot
 {
     public class SmoothJointStateSubscriber : UnitySubscriber<JointState>
     {
-        public UrdfRobot Robot;
         public float SmoothingSpeed = 10f; // Interpolation strength
+        public RobotStateProvider StateProvider;
 
-        private Dictionary<string, UrdfJoint> jointMap = new Dictionary<string, UrdfJoint>();
         private Dictionary<string, float> targetPositions = new Dictionary<string, float>();
         
         protected override void Start()
         {
             if (string.IsNullOrEmpty(Topic)) Topic = "/unity/joint_states";
-            if (Robot == null) Robot = GetComponent<UrdfRobot>();
+            if (StateProvider == null) StateProvider = GetComponent<RobotStateProvider>();
+            if (StateProvider == null) StateProvider = GetComponentInParent<RobotStateProvider>();
             
-            // Index Joints
-            var joints = Robot.GetComponentsInChildren<UrdfJoint>();
-            foreach (var j in joints)
+            if (StateProvider == null)
             {
-                if (!string.IsNullOrEmpty(j.JointName))
-                    jointMap[j.JointName] = j;
+                Debug.LogWarning("[SmoothJointStateSubscriber] RobotStateProvider not found! Using fallback joint discovery.");
             }
 
             base.Start();
@@ -60,9 +57,9 @@ namespace RobotSim.ROS
                     var name = kvp.Key;
                     var targetVal = kvp.Value;
 
-                    if (jointMap.ContainsKey(name))
+                    if (StateProvider != null && StateProvider.JointMap.ContainsKey(name))
                     {
-                        var joint = jointMap[name];
+                        var joint = StateProvider.JointMap[name];
                         float current = (float)joint.GetPosition(); // Assuming Rad
                         
                         // Lerp for smoothness
