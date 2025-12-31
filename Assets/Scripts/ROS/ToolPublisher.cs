@@ -41,7 +41,12 @@ namespace RosSharp.RosBridgeClient
 
         private void OnDestroy()
         {
-            PublishTool(1); // REMOVE
+            try
+            {
+                if (Application.isPlaying) 
+                    PublishTool(1); // REMOVE
+            }
+            catch {}
         }
 
         private void InitializeMessage()

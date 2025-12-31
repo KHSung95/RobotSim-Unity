@@ -36,7 +36,15 @@ namespace RosSharp.RosBridgeClient
 
         private void OnDestroy()
         {
-            PublishCollisionObject(1); // 1 = REMOVE
+            // Only attempt to publish remove if we are cleaning up logic at runtime,
+            // NOT when the application is shutting down (Connector might be dead).
+            // We can check if RosSocket is still alive implicitly via trying to access it safely or catching.
+            try 
+            {
+                if (Application.isPlaying) 
+                    PublishCollisionObject(1); // 1 = REMOVE
+            }
+            catch {}
         }
 
         private void InitializeMessage()
