@@ -493,6 +493,7 @@ GameObject:
   - component: {fileID: 33585999}
   - component: {fileID: 33585998}
   - component: {fileID: 33585997}
+  - component: {fileID: 33586002}
   m_Layer: 0
   m_Name: Camera
   m_TagString: Untagged
@@ -623,6 +624,19 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 33585995}
   m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!114 &33586002
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 33585995}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 352af5f23cd0b694489ad6bd90cf08c8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  highlightMat: {fileID: 0}
 --- !u!1 &34281375
 GameObject:
   m_ObjectHideFlags: 0
@@ -12023,13 +12037,13 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 4294967295
   handleLayerName: TransformHandle
-  highlightColor: {r: 1, g: 1, b: 1, a: 1}
-  positionShortcut: 122
-  rotationShortcut: 101
-  scaleShortcut: 114
-  allShortcut: 97
-  spaceShortcut: 120
-  pivotShortcut: 122
+  highlightColor: {r: 1, g: 0, b: 0, a: 1}
+  positionShortcut: 0
+  rotationShortcut: 0
+  scaleShortcut: 0
+  allShortcut: 0
+  spaceShortcut: 0
+  pivotShortcut: 0
 --- !u!4 &1105229973
 Transform:
   m_ObjectHideFlags: 0
@@ -22912,7 +22926,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2137607294}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 352af5f23cd0b694489ad6bd90cf08c8, type: 3}
   m_Name: 

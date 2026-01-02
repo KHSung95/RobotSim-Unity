@@ -675,9 +675,9 @@ namespace RobotSim.Editor
             cancelBtn.GetComponent<LayoutElement>().preferredWidth = 90;
 
             //// Add Border/Shadow visual if possible (Outline for now)
-            var outline = modal.AddComponent<Outline>();
-            outline.effectColor = Theme.Accent;
-            outline.effectDistance = new Vector2(1, -1);
+            //var outline = modal.AddComponent<Outline>();
+            //outline.effectColor = Theme.Accent;
+            //outline.effectDistance = new Vector2(1, -1);
 
             //// Drag Handler
             modal.AddComponent<RobotSim.UI.DragWindow>();
