@@ -15,9 +15,6 @@ namespace RobotSim.UI
         public PointCloudGenerator PCG;
         public VirtualCameraMount CamMount;
 
-        [Header("Scene Roots")]
-        public Transform RobotBase;
-
         [Header("Controllers")]
         public Robot.RobotStateProvider StateProvider;
         public Control.RosJogAdapter RosJogAdapter;
@@ -50,8 +47,11 @@ namespace RobotSim.UI
         // Modal References
         private GameObject _settingsModal;
         private TMP_InputField _settingsThreshold;
-        private bool _isHandEye = true;
         private Button _settingsOkBtn;
+
+        // Camera Mount Settings
+        private Toggle _handEyeToggle;
+        private Toggle _birdEyeToggle;
 
         // Control Panel
         private GameObject _controlPanel;
@@ -65,31 +65,17 @@ namespace RobotSim.UI
             if (RosJogAdapter == null) RosJogAdapter = FindFirstObjectByType<RobotSim.Control.RosJogAdapter>(FindObjectsInactive.Include);
             if (StateProvider == null) StateProvider = FindFirstObjectByType<RobotStateProvider>(FindObjectsInactive.Include);
 
-            if (RobotBase == null)
-            {
-                var baseObj = GameObject.Find("base_link");
-                if (baseObj != null) RobotBase = baseObj.transform;
-                else RobotBase = GameObject.Find("ur5e")?.transform;
-            }
-
             // Find UI Roots more robustly
-            var canvas = FindObjectOfType<Canvas>();
-            Transform uiRoot = canvas?.transform.Find("UIRoot");
+            Transform uiRoot = FindObjectOfType<Canvas>()?.transform.Find("UIRoot");
+
             Navbar = uiRoot?.Find("Navbar")?.gameObject;
             if(Navbar != null)
             {
-                _settingsToggle = FindUISub<Toggle>(Navbar, "Button_Settings");
                 _masterToggle = FindUISub<Toggle>(Navbar, "Button_Master");
+                _settingsToggle = FindUISub<Toggle>(Navbar, "Button_Settings");
             }
 
             ConsolePanel = uiRoot?.Find("Console")?.gameObject;
-
-            _settingsModal = uiRoot?.Find("SettingsModal")?.gameObject;
-            if(_settingsModal != null)
-            {
-                _settingsThreshold = FindUISub<TMP_InputField>(_settingsModal, "Input_Threshold");
-                _settingsOkBtn = FindUISub<Button>(_settingsModal, "Button_Ok");
-            }
 
             Sidebar = uiRoot?.Find("Sidebar")?.gameObject;
             if (Sidebar != null)
@@ -133,9 +119,22 @@ namespace RobotSim.UI
                     }
                 }
             }
+
+            _settingsModal = uiRoot?.Find("SettingsModal")?.gameObject;
+            if (_settingsModal != null)
+            {
+                Debug.Log("[UnifiedControlUI] SettingsModal found.");
+                _settingsThreshold = FindUISub<TMP_InputField>(_settingsModal, "Input_Threshold");
+                _settingsOkBtn = FindUISub<Button>(_settingsModal, "Button_Ok");
+                _handEyeToggle = FindUISub<Toggle>(_settingsModal, "Toggle_Handeye");
+                _birdEyeToggle = FindUISub<Toggle>(_settingsModal, "Toggle_Birdeye");
+                
+                if (_handEyeToggle == null) Debug.LogWarning("[UnifiedControlUI] Toggle_Handeye NOT found in SettingsModal!");
+                if (_birdEyeToggle == null) Debug.LogWarning("[UnifiedControlUI] Toggle_Birdeye NOT found in SettingsModal!");
+            }
             else
             {
-                Debug.LogError("<b>[UnifiedControlUI]</b> Sidebar NOT found!");
+                Debug.LogWarning("[UnifiedControlUI] SettingsModal NOT found under UIRoot!");
             }
         }
 
@@ -156,55 +155,69 @@ namespace RobotSim.UI
 
         private void BindEvents()
         {
-            if (Sidebar == null) return;
-            
-            if (_fkToggle) _fkToggle.onValueChanged.AddListener((v) => { if (v) SetMode(true); });
-            if (_ikToggle) _ikToggle.onValueChanged.AddListener((v) => { if (v) SetMode(false); });
+            // [수정] Sidebar가 없어도 Navbar나 SettingsModal은 동작해야 함 (Early Return 제거)
+            if (Sidebar != null)
+            {
+                if (_fkToggle) _fkToggle.onValueChanged.AddListener((v) => { if (v) SetControllerMode(true); });
+                if (_ikToggle) _ikToggle.onValueChanged.AddListener((v) => { if (v) SetControllerMode(false); });
 
-            if (_captureBtn) _captureBtn.onClick.AddListener(() =>
-            {
-                Guidance?.CaptureCurrent();
-            });
-            if (_guidanceBtn) _guidanceBtn.onClick.AddListener(() => Guidance?.RunGuidance());
-            
-            if (_captureMasterBtn) _captureMasterBtn.onClick.AddListener(() =>
-            {
-                Guidance?.CaptureMaster();
-            });
-            if (_rgbToggle) _rgbToggle.onValueChanged.AddListener((v) => { if (v) SetVisionMode(true); });
-            if (_depthToggle) _depthToggle.onValueChanged.AddListener((v) => { if (v) SetVisionMode(false); });
-
-            if (Navbar)
-            {
-                if (_masterToggle)
-                {
-                    _masterToggle.onValueChanged.AddListener(OnMasterModeChanged);
-                }
+                if (_captureBtn) _captureBtn.onClick.AddListener(() => Guidance?.CaptureCurrent());
+                if (_guidanceBtn) _guidanceBtn.onClick.AddListener(() => Guidance?.RunGuidance());
                 
-                if (_settingsToggle)
+                if (_rgbToggle) _rgbToggle.onValueChanged.AddListener((v) => { if (v) SetVisionMode(true); });
+                if (_depthToggle) _depthToggle.onValueChanged.AddListener((v) => { if (v) SetVisionMode(false); });
+
+                if (_speedSlider) _speedSlider.onValueChanged.AddListener((v) => {
+                    if (RosJogAdapter != null) RosJogAdapter.SpeedMultiplier = v;
+                });
+            }
+
+            if (Navbar != null)
+            {
+                if (_masterToggle) _masterToggle.onValueChanged.AddListener(OnMasterModeChanged);
+                if (_settingsToggle) _settingsToggle.onValueChanged.AddListener((v) => {
+                    if (_settingsModal) _settingsModal.SetActive(v);
+                });
+            }
+
+            if (_masterModule != null)
+            {
+                if (_captureMasterBtn) _captureMasterBtn.onClick.AddListener(() => Guidance?.CaptureMaster());
+            }
+
+            if (_settingsModal != null)
+            {
+                Debug.Log("[UnifiedControlUI] Binding Settings Modal Events...");
+
+                var _settingsCloseBtn = _settingsModal.transform.FindDeepChild("Button_Cancel")?.GetComponent<Button>();
+                if (_settingsCloseBtn) bindSettingModalClose(ref _settingsCloseBtn);
+                
+                var _settingsXBtn = _settingsModal.transform.FindDeepChild("Button_X")?.GetComponent<Button>();
+                if (_settingsXBtn) bindSettingModalClose(ref _settingsXBtn);
+                
+                if (_settingsOkBtn) bindSettingModalClose(ref _settingsOkBtn);
+
+                if (_handEyeToggle)
                 {
-                    _settingsToggle.onValueChanged.AddListener((v) => {
-                         if (_settingsModal) _settingsModal.SetActive(v);
+                    Debug.Log("[UnifiedControlUI] HandEye Toggle found and binding.");
+                    _handEyeToggle.onValueChanged.AddListener((v) =>
+                    {
+                        Debug.Log($"[UnifiedControlUI] HandEye Toggle Pressed: {v}");
+                        if (v) SetCameraMountMode(true);
                     });
                 }
-            }
-            if (_settingsModal)
-            {
-                var _settingsCloseBtn = _settingsModal.transform.FindDeepChild("Button_Cancel")?.gameObject?.GetComponent<Button>();
-                // Settings Modal 닫기 이벤트 추가
-                if (_settingsCloseBtn != null)
-                { 
-                    bindSettingModalClose(ref _settingsCloseBtn);
-                }
-                var _settingsXBtn = _settingsModal.transform.FindDeepChild("Button_X")?.gameObject?.GetComponent<Button>();
-                if (_settingsXBtn != null)
+                else Debug.LogWarning("[UnifiedControlUI] HandEye Toggle NOT found!");
+
+                if (_birdEyeToggle)
                 {
-                    bindSettingModalClose(ref _settingsXBtn);
+                    Debug.Log("[UnifiedControlUI] BirdEye Toggle found and binding.");
+                    _birdEyeToggle.onValueChanged.AddListener((v) =>
+                    {
+                        Debug.Log($"[UnifiedControlUI] BirdEye Toggle Pressed: {v}");
+                        if (v) SetCameraMountMode(false);
+                    });
                 }
-                if (_settingsOkBtn)
-                {
-                    bindSettingModalClose(ref _settingsOkBtn);
-                }
+                else Debug.LogWarning("[UnifiedControlUI] BirdEye Toggle NOT found!");
             }
         }
 
@@ -249,6 +262,11 @@ namespace RobotSim.UI
                         _visionFeed.color = Color.white;
                     }
                 }
+                var modeController = CamMount.GetComponent<VisionModeController>();
+                if (modeController != null)
+                {
+                    modeController.SetVisionMode(isRGB);
+                }
             }
         }
 
@@ -256,11 +274,12 @@ namespace RobotSim.UI
         {
             InitializeReferences();
             BindEvents();
-            SetMode(true);
+            SetControllerMode(true);
             SetVisionMode(true);
+            SetCameraMountMode(true);
         }
 
-        public void SetMode(bool isFK)
+        public void SetControllerMode(bool isFK)
         {
             _isFKMode = isFK;
             
@@ -393,10 +412,24 @@ namespace RobotSim.UI
             _rows[5].ValueText.text = $"{rot.z:F1}";
         }
 
-        public void SetCameraMount(bool isHandEye)
+        public void SetCameraMountMode(bool isHandEye)
         {
-            if (CamMount == null) return;
+            // [수정] Null일 경우 에러 로그 출력 (Silent Failure 방지)
+            if (CamMount == null || StateProvider == null)
+                return;
+
+            // [추가] CamMount 내부 로직 호출 (Transform Parent 변경 및 갱신 포함)
+            CamMount.SetMountMode(isHandEye ? CameraMountType.HandEye : CameraMountType.BirdEye);
+
+            // [추가] UI Toggle 상태 동기화
+            if (_handEyeToggle) _handEyeToggle.SetIsOnWithoutNotify(isHandEye);
+            if (_birdEyeToggle) _birdEyeToggle.SetIsOnWithoutNotify(!isHandEye);
+
+            // [추가] Toggle 시각적 상태 업데이트 (ToggleTabManager가 있을 경우)
+            _handEyeToggle?.GetComponentInParent<ToggleTabManager>()?.UpdateVisuals();
+
+            // 성공 로그
+            Debug.Log($"[UnifiedControlUI] Camera Mount switched to: {(isHandEye ? "Hand-Eye" : "Bird-Eye")}");
         }
     }
-
 }
