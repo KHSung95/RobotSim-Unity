@@ -187,8 +187,6 @@ namespace RobotSim.UI
 
             if (_settingsModal != null)
             {
-                Debug.Log("[UnifiedControlUI] Binding Settings Modal Events...");
-
                 var _settingsCloseBtn = _settingsModal.transform.FindDeepChild("Button_Cancel")?.GetComponent<Button>();
                 if (_settingsCloseBtn) bindSettingModalClose(ref _settingsCloseBtn);
                 
@@ -198,26 +196,10 @@ namespace RobotSim.UI
                 if (_settingsOkBtn) bindSettingModalClose(ref _settingsOkBtn);
 
                 if (_handEyeToggle)
-                {
-                    Debug.Log("[UnifiedControlUI] HandEye Toggle found and binding.");
-                    _handEyeToggle.onValueChanged.AddListener((v) =>
-                    {
-                        Debug.Log($"[UnifiedControlUI] HandEye Toggle Pressed: {v}");
-                        if (v) SetCameraMountMode(true);
-                    });
-                }
-                else Debug.LogWarning("[UnifiedControlUI] HandEye Toggle NOT found!");
+                    _handEyeToggle.onValueChanged.AddListener((v) => {if (v) SetCameraMountMode(true);});
 
                 if (_birdEyeToggle)
-                {
-                    Debug.Log("[UnifiedControlUI] BirdEye Toggle found and binding.");
-                    _birdEyeToggle.onValueChanged.AddListener((v) =>
-                    {
-                        Debug.Log($"[UnifiedControlUI] BirdEye Toggle Pressed: {v}");
-                        if (v) SetCameraMountMode(false);
-                    });
-                }
-                else Debug.LogWarning("[UnifiedControlUI] BirdEye Toggle NOT found!");
+                    _birdEyeToggle.onValueChanged.AddListener((v) => {if (v) SetCameraMountMode(false);});
             }
         }
 
