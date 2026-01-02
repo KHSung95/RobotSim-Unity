@@ -4,12 +4,9 @@ using System.Collections.Generic;
 namespace RobotSim.Sensors
 {
     [RequireComponent(typeof(Camera))]
-    // [수정] Mesh 컴포넌트는 이제 이 스크립트가 있는 카메라에 붙이지 않습니다.
-    // 대신 별도의 오브젝트를 생성해서 거기에 붙일 것입니다.
     public class PointCloudGenerator : MonoBehaviour
     {
-        [Header("Frame References")]
-        public Transform RobotBaseReference; // 로봇 베이스 (필수)
+        private Transform RobotBaseReference;
 
         [Header("Scan Settings")]
         public int Width = 160;
@@ -20,111 +17,107 @@ namespace RobotSim.Sensors
 
         [Header("Visualization")]
         public bool ShowPoints = true;
-        [Range(0.001f, 0.1f)] public float PointSize = 0.01f;
-        public Material PointCloudMat;
+        [Range(0.001f, 10f)] public float PointSize = 0.01f;
 
         [Header("Sensor Simulation")]
         public float NoiseLevel = 0.0005f;
 
         public struct Point3D
         {
-            public Vector3 Position; // Robot Base Frame Local Coordinates
+            public Vector3 Position;
             public Color Color;
         }
 
         private List<Point3D> masterCloud = new List<Point3D>();
         private List<Point3D> scanCloud = new List<Point3D>();
-
-        // References
         private Camera cam;
 
-        // [핵심] 시각화 전용 오브젝트 (카메라와 분리됨)
-        private GameObject visualContainer;
-        private Mesh mesh;
-        private MeshFilter meshFilter;
-        private MeshRenderer meshRenderer;
+        // [구조 변경] 루트 컨테이너와 두 개의 자식 컨테이너
+        private GameObject rootContainer;
+        private MeshRenderer masterRenderer;
+        private MeshFilter masterFilter;
+        private MeshRenderer scanRenderer;
+        private MeshFilter scanFilter;
 
         private void Start()
         {
             cam = GetComponent<Camera>();
 
-            // [초기화 로직 변경]
-            // 1. 시각화용 전용 GameObject 생성
-            visualContainer = new GameObject("PointCloud_Visualizer");
+            // 1. 루트 컨테이너 생성 (RobotBase를 따라다닐 녀석)
+            rootContainer = new GameObject("PointCloud_Visualizer");
 
-            // 2. 만약 RobotBase가 할당되어 있다면, 그 자식으로 설정 (Base 기준 좌표계 동기화)
-            if (RobotBaseReference != null)
-            {
-                visualContainer.transform.SetParent(RobotBaseReference, false);
-                visualContainer.transform.localPosition = Vector3.zero;
-                visualContainer.transform.localRotation = Quaternion.identity;
-            }
-            else
-            {
-                Debug.LogWarning("RobotBaseReference가 없습니다! 시각화가 월드 기준으로 생성됩니다.");
-            }
+            // 2. Master와 Scan을 별도 오브젝트로 분리 생성
+            CreateSubVisualizer("Master_Cloud", out masterFilter, out masterRenderer);
+            CreateSubVisualizer("Scan_Cloud", out scanFilter, out scanRenderer);
+        }
 
-            // 3. 렌더링 컴포넌트를 'visualContainer'에 추가
-            meshFilter = visualContainer.AddComponent<MeshFilter>();
-            meshRenderer = visualContainer.AddComponent<MeshRenderer>();
+        // 반복되는 오브젝트 생성 코드를 함수로 분리
+        private void CreateSubVisualizer(string name, out MeshFilter filter, out MeshRenderer rend)
+        {
+            GameObject obj = new GameObject(name);
+            obj.transform.SetParent(rootContainer.transform, false); // 루트의 자식으로
+            obj.transform.localPosition = Vector3.zero;
+            obj.transform.localRotation = Quaternion.identity;
 
-            // 4. 메쉬 초기화
-            mesh = new Mesh();
-            mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
-            meshFilter.mesh = mesh;
+            filter = obj.AddComponent<MeshFilter>();
+            rend = obj.AddComponent<MeshRenderer>();
 
-            if (PointCloudMat != null) meshRenderer.material = PointCloudMat;
-            else
-            {
-                // 재질이 없으면 기본 생성 (디버그용)
-                var shader = Shader.Find("Particles/Standard Unlit");
-                if (shader) meshRenderer.material = new Material(shader);
-            }
+            Mesh m = new Mesh();
+            m.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+            filter.mesh = m;
+
+            // 재질이 없으면 쉐이더 찾아서 생성
+            var shader = Shader.Find("Custom/PointCloudShader");
+            if (shader) rend.material = new Material(shader);
         }
 
         public void SetRobotBase(Transform robotBase)
         {
             RobotBaseReference = robotBase;
-            // 런타임에 베이스가 할당되면 컨테이너를 그쪽으로 이동
-            if (visualContainer != null)
+            if (rootContainer != null)
             {
-                visualContainer.transform.SetParent(RobotBaseReference, false);
-                visualContainer.transform.localPosition = Vector3.zero;
-                visualContainer.transform.localRotation = Quaternion.identity;
+                rootContainer.transform.SetParent(RobotBaseReference, false);
+                rootContainer.transform.localPosition = Vector3.zero;
+                rootContainer.transform.localRotation = Quaternion.identity;
             }
         }
 
         private void Update()
         {
-            // 점 크기 업데이트
-            if (meshRenderer != null && meshRenderer.material != null)
-            {
-                meshRenderer.material.SetFloat("_PointSize", PointSize);
-            }
+            // 점 크기 실시간 반영 (두 재질 모두)
+            if (masterRenderer != null && masterRenderer.material != null)
+                masterRenderer.material.SetFloat("_PointSize", PointSize);
 
-            // [중요] 더 이상 transform.position을 강제로 옮기지 않습니다.
-            // visualContainer가 이미 RobotBase의 자식으로 들어가 있기 때문입니다.
+            if (scanRenderer != null && scanRenderer.material != null)
+                scanRenderer.material.SetFloat("_PointSize", PointSize);
         }
 
         public void CaptureMaster()
         {
             if (RobotBaseReference == null) return;
+            // Master는 비교 대상이 없으므로 Heatmap 없이 흰색(1,1,1,1)으로 저장
+            // -> 이렇게 하면 Material의 색상(_Tint)이 그대로 적용됨
             masterCloud = CaptureInternal(RobotBaseReference.worldToLocalMatrix, Color.white, true);
-            UpdateVisualization();
+
+            // Master 메쉬만 업데이트
+            UpdateMesh(masterFilter.mesh, masterCloud);
         }
 
         public void CaptureScan()
         {
             if (RobotBaseReference == null) return;
-            scanCloud = CaptureInternal(RobotBaseReference.worldToLocalMatrix, Color.green, false);
-            UpdateVisualization();
+            // Scan은 Heatmap 컬러(초록/빨강)가 버텍스에 구워짐
+            // -> ScanMat의 색상을 흰색으로 두면 Heatmap이 보이고, 색을 섞으면 틴트가 됨
+            scanCloud = CaptureInternal(RobotBaseReference.worldToLocalMatrix, Color.white, false);
+
+            // Scan 메쉬만 업데이트
+            UpdateMesh(scanFilter.mesh, scanCloud);
         }
 
         private List<Point3D> CaptureInternal(Matrix4x4 T_ref_world, Color defaultColor, bool isMaster)
         {
             List<Point3D> cloud = new List<Point3D>();
 
-            // 카메라 뷰포트 스캔 루프
             for (int y = 0; y < Height; y++)
             {
                 for (int x = 0; x < Width; x++)
@@ -136,15 +129,20 @@ namespace RobotSim.Sensors
                     {
                         Point3D p = new Point3D();
                         Vector3 hitPoint = hit.point;
-
                         if (NoiseLevel > 0) hitPoint += Random.insideUnitSphere * NoiseLevel;
 
-                        // [좌표 변환] World -> RobotBase Local
                         p.Position = T_ref_world.MultiplyPoint3x4(hitPoint);
 
-                        if (isMaster) p.Color = Color.white;
-                        else p.Color = CalculateHeatmapColor(p.Position);
-
+                        if (isMaster)
+                        {
+                            // Master는 버텍스 컬러를 흰색으로 통일 -> 그래야 Material 색상이 100% 적용됨
+                            p.Color = Color.white;
+                        }
+                        else
+                        {
+                            // Scan은 히트맵 컬러 사용
+                            p.Color = CalculateHeatmapColor(p.Position);
+                        }
                         cloud.Add(p);
                     }
                 }
@@ -154,51 +152,45 @@ namespace RobotSim.Sensors
 
         private Color CalculateHeatmapColor(Vector3 pos)
         {
-            if (masterCloud.Count == 0) return Color.green;
+            if (masterCloud.Count == 0) return Color.green; // 비교 대상 없으면 그냥 초록
+
             float minSqDist = float.MaxValue;
-            // 성능 최적화가 필요한 부분 (현재 O(N^2))
-            foreach (var mp in masterCloud)
+            // 성능 최적화: 점이 많으면 여기서 병목 발생. 추후 KDTree 도입 필요.
+            // 지금은 단순히 건너뛰기(Stride) 등으로 임시 최적화 가능
+            int stride = 1; // 1이면 전수조사. 
+            for (int i = 0; i < masterCloud.Count; i += stride)
             {
-                float d = (mp.Position - pos).sqrMagnitude;
+                float d = (masterCloud[i].Position - pos).sqrMagnitude;
                 if (d < minSqDist) minSqDist = d;
             }
             return (minSqDist < Tolerance * Tolerance) ? Color.green : Color.red;
         }
 
-        private void UpdateVisualization()
+        // [함수 분리] 특정 메쉬에 데이터를 그리는 로직
+        private void UpdateMesh(Mesh targetMesh, List<Point3D> points)
         {
-            if (!ShowPoints) { mesh.Clear(); return; }
-
-            int totalPoints = masterCloud.Count + scanCloud.Count;
-            if (totalPoints == 0) return;
-
-            Vector3[] vertices = new Vector3[totalPoints];
-            Color[] colors = new Color[totalPoints];
-            int[] indices = new int[totalPoints];
-
-            int idx = 0;
-            // Master Points
-            foreach (var p in masterCloud)
+            if (!ShowPoints || points == null || points.Count == 0)
             {
-                vertices[idx] = p.Position;
-                colors[idx] = p.Color;
-                indices[idx] = idx;
-                idx++;
-            }
-            // Scan Points
-            foreach (var p in scanCloud)
-            {
-                vertices[idx] = p.Position;
-                colors[idx] = p.Color;
-                indices[idx] = idx;
-                idx++;
+                targetMesh.Clear();
+                return;
             }
 
-            mesh.Clear();
-            mesh.vertices = vertices;
-            mesh.colors = colors;
-            mesh.SetIndices(indices, MeshTopology.Points, 0);
-            mesh.RecalculateBounds();
+            Vector3[] vertices = new Vector3[points.Count];
+            Color[] colors = new Color[points.Count];
+            int[] indices = new int[points.Count];
+
+            for (int i = 0; i < points.Count; i++)
+            {
+                vertices[i] = points[i].Position;
+                colors[i] = points[i].Color;
+                indices[i] = i;
+            }
+
+            targetMesh.Clear();
+            targetMesh.vertices = vertices;
+            targetMesh.colors = colors;
+            targetMesh.SetIndices(indices, MeshTopology.Points, 0);
+            targetMesh.RecalculateBounds();
         }
     }
 }
