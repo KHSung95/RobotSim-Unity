@@ -1,47 +1,36 @@
 using System.Collections.Generic;
+using TransformHandles;
 using UnityEngine;
-using UnityEngine.EventSystems; // ÇÊ¼ö ³×ÀÓ½ºÆäÀÌ½º
+using UnityEngine.EventSystems;
+
 public class InteractableItem : MonoBehaviour, IPointerClickHandler, IPointerEnterHandler, IPointerExitHandler
 {
     public Material highlightMat;
-
-    private List<Material> originalMat;
-    private List<Renderer> Renderers;
+    private List<Material> originalMats = new List<Material>();
+    private List<Renderer> renderers;
+    private TransformHandleManager _manager;
 
     void Start()
     {
-        Renderers = new List<Renderer>(GetComponentsInChildren<Renderer>(true));
-        originalMat = new List<Material>();
-        foreach(var r in Renderers)
-        {
-            originalMat.Add(r.material);
-        }
+        renderers = new List<Renderer>(GetComponentsInChildren<Renderer>(true));
+        foreach (var r in renderers) originalMats.Add(r.material);
+
+        _manager = TransformHandleManager.Instance;
     }
 
-    // ¸¶¿ì½º°¡ ¾ÆÀÌÅÛ À§¿¡ ¿Ã¶ó°¬À» ¶§ (ÇÏÀÌ¶óÀÌÆ® È¿°ú)
     public void OnPointerEnter(PointerEventData eventData)
     {
-        foreach (var r in Renderers)
-        {
-            r.material = highlightMat;
-        }
+        foreach (var r in renderers) r.material = highlightMat;
     }
 
-    // ¸¶¿ì½º°¡ ³ª°¬À» ¶§
     public void OnPointerExit(PointerEventData eventData)
     {
-        for (int i = 0; i < Renderers.Count; i++)
-        {
-            Renderers[i].material = originalMat[i];
-        }
+        for (int i = 0; i < renderers.Count; i++) renderers[i].material = originalMats[i];
     }
 
-    // Å¬¸¯ÇßÀ» ¶§ (·Îº¿ÀÇ Å¸°ÙÀ¸·Î ¼³Á¤ÇÏ°Å³ª ¼±ÅÃ)
     public void OnPointerClick(PointerEventData eventData)
     {
-        Debug.Log($"{gameObject.name}ÀÌ ¼±ÅÃµÇ¾ú½À´Ï´Ù!");
-
-        // ¿¹: Àü¿ª ¸Å´ÏÀú¿¡°Ô "³»°¡ ÀÌÁ¦ Å¸°ÙÀÌ¾ß"¶ó°í ¾Ë¸²
-        // SimulationManager.Instance.SetTarget(this.transform);
+        // í´ë¦­ë˜ë©´ ë‚˜ë¥¼ ì„ íƒí•´ë‹¬ë¼ê³  ë§¤ë‹ˆì €ì—ê²Œ ìš”ì²­í•¨
+        SelectionManager.Instance.SelectItem(this);
     }
 }
