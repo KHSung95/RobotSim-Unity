@@ -117,7 +117,7 @@ namespace RobotSim.UI
                 _fkToggle = FindUISub<Toggle>(Sidebar, "Toggle_FK");
                 _ikToggle = FindUISub<Toggle>(Sidebar, "Toggle_IK");
 
-                _speedSlider = FindUISub<Slider>(Sidebar, "SpeedSlider");
+                _speedSlider = FindUISub<Slider>(Sidebar, "Slider");
                 _eStopBtn = FindUISub<Button>(Sidebar, "EStop");
 
                 _controlPanel = Sidebar.transform.FindDeepChild("ControlPanel")?.gameObject;
