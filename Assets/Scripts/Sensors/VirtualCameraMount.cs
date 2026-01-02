@@ -43,7 +43,7 @@ namespace RobotSim.Sensors
             InitializeReferences();
         }
 
-        private void LateUpdate()
+        private void setManualPoint() // unused for now
         {
             if (MountType == CameraMountType.HandEye && StateProvider.TcpTransform != null)
             {
@@ -56,7 +56,7 @@ namespace RobotSim.Sensors
                 transform.rotation = StateProvider.RobotBase.rotation * Quaternion.Euler(RelativeRotation);
             }
         }
-        
+
         public void SetMountMode(CameraMountType mode)
         {
             if (MountType != mode)
@@ -72,23 +72,6 @@ namespace RobotSim.Sensors
                         transform.SetParent(targetParent, true);
                     }
                 }
-                
-                //UpdateRelativeFromCurrent();
-            }
-        }
-
-        [ContextMenu("Update Relative From Current")]
-        public void UpdateRelativeFromCurrent()
-        {
-            if (MountType == CameraMountType.HandEye && StateProvider.TcpTransform != null)
-            {
-                RelativePosition = StateProvider.TcpTransform.InverseTransformPoint(transform.position);
-                RelativeRotation = (Quaternion.Inverse(StateProvider.TcpTransform.rotation) * transform.rotation).eulerAngles;
-            }
-            else if (MountType == CameraMountType.BirdEye && StateProvider.RobotBase != null)
-            {
-                RelativePosition = StateProvider.RobotBase.InverseTransformPoint(transform.position);
-                RelativeRotation = (Quaternion.Inverse(StateProvider.RobotBase.rotation) * transform.rotation).eulerAngles;
             }
         }
     }
