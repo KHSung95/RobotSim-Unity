@@ -12,6 +12,8 @@ GameObject:
   - component: {fileID: 8870389915915555077}
   - component: {fileID: 2855357773384159439}
   - component: {fileID: 702235211465604543}
+  - component: {fileID: 8133013232631558044}
+  - component: {fileID: 1666504825116702259}
   m_Layer: 0
   m_Name: Cube
   m_TagString: Untagged
@@ -105,6 +107,43 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 1, y: 1, z: 1}
   m_Center: {x: 0, y: 0, z: 0}
+--- !u!114 &8133013232631558044
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1987795762680027024}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ff98778ae051cfd40a6e4effdf851ebd, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  selectedRosVersion: 1
+  SecondsTimeout: 10
+  Serializer: 1
+  protocol: 0
+  RosBridgeServerUrl: ws://localhost:9090
+--- !u!114 &1666504825116702259
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1987795762680027024}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5b1f30dacbc25794e81777e6ae64dcfc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  Topic: 
+  ToolId: 
+  AttachLinkName: tool0
+  TouchLinks:
+  - wrist_3_link
+  - tool0
+  AttachLinkTransform: {fileID: 0}
+  shapeType: 0
 --- !u!1 &2918419671596022032
 GameObject:
   m_ObjectHideFlags: 0
@@ -251,8 +290,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 7881171060184962048}
-  - component: {fileID: 7512501929425625755}
-  - component: {fileID: 8044399743282132820}
   - component: {fileID: 5641541598580986634}
   m_Layer: 0
   m_Name: CameraTool
@@ -278,43 +315,6 @@ Transform:
   - {fileID: 1114544036140106915}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &7512501929425625755
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5997401378413873757}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ff98778ae051cfd40a6e4effdf851ebd, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  selectedRosVersion: 1
-  SecondsTimeout: 10
-  Serializer: 1
-  protocol: 0
-  RosBridgeServerUrl: ws://localhost:9090
---- !u!114 &8044399743282132820
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5997401378413873757}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5b1f30dacbc25794e81777e6ae64dcfc, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  Topic: 
-  ToolId: camera
-  AttachLinkName: tool0
-  TouchLinks:
-  - wrist_3_link
-  - tool0
-  AttachLinkTransform: {fileID: 0}
-  shapeType: 0
 --- !u!114 &5641541598580986634
 MonoBehaviour:
   m_ObjectHideFlags: 0

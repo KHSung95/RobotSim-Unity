@@ -1595,6 +1595,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 509274157}
     m_Modifications:
+    - target: {fileID: 1666504825116702259, guid: 6ef52bb1ad3696b49a318be971f8943c, type: 3}
+      propertyPath: AttachLinkTransform
+      value: 
+      objectReference: {fileID: 509274157}
     - target: {fileID: 5997401378413873757, guid: 6ef52bb1ad3696b49a318be971f8943c, type: 3}
       propertyPath: m_Name
       value: CameraTool
