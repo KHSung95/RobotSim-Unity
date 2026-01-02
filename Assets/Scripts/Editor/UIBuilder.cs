@@ -260,32 +260,15 @@ namespace RobotSim.Editor
 
             // 4. Settings Modal (Draggable) - Ensure it's a direct child of UIRoot
             BuildSettingsModal(root.transform);
-            //GameObject modal = CreatePanel(root.transform, "SettingsModal", Theme.BgPanel);
-            //// Center, 400x300
-            //Anchor(modal, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f));
-            //modal.GetComponent<RectTransform>().sizeDelta = new Vector2(400, 300);
-      
 
-            //// 레이아웃 그룹 설정 최적화
-            //var vModal = modal.AddComponent<VerticalLayoutGroup>();
-            //vModal.padding = new RectOffset(10, 10, 10, 10);
-            //vModal.spacing = 20;
-            //vModal.childControlHeight = true; // 자식 높이 제어 활성화
-            //vModal.childForceExpandHeight = false; // 강제 확장 비활성화
+            int layer = LayerMask.NameToLayer("UI");
+            // true를 넣으면 비활성화된 자식들까지 모두 포함합니다.
+            Transform[] allChildren = root.GetComponentsInChildren<Transform>(true);
 
-            //CreateText(modal.transform, "Settings", 20, FontStyles.Bold, Theme.TextMain).alignment = TextAlignmentOptions.Center;
-            
-            //// Placeholder Content
-            //CreateText(modal.transform, "Robot IP Address:", 14, FontStyles.Normal, Theme.TextDim);
-            //var ipInput = CreatePanel(modal.transform, "Input_IP", Color.black);
-            //ipInput.GetComponent<LayoutElement>().minHeight = 30;
-            
-            //// Close Button area
-            //GameObject space = new GameObject("Spacer", typeof(RectTransform), typeof(LayoutElement));
-            //space.transform.SetParent(modal.transform, false);
-            //space.GetComponent<LayoutElement>().flexibleHeight = 1;
-
-            //var closeBtn = CreateBigButton(modal.transform, "Close", "CLOSE", Theme.TextDim);
+            foreach (Transform t in allChildren)
+            {
+                t.gameObject.layer = layer;
+            }
         }
 
         // --- Helpers ---
@@ -626,7 +609,7 @@ namespace RobotSim.Editor
             content.GetComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
             // B-1. Threshold 입력 행
-            var row1 = CreateRow(content.transform, "ThresholdRow");
+            var row1 = CreateRow(content.transform, "Threshold");
             CreateText(row1.transform, "Max Deviation Threshold:", 14, FontStyles.Normal, Theme.TextMain);
             
             // InputField Creation
@@ -637,14 +620,14 @@ namespace RobotSim.Editor
             CreateText(row1.transform, "mm", 14, FontStyles.Normal, Theme.TextDim).GetComponent<LayoutElement>().preferredWidth = 30;
 
             // B-2. Mounting 행
-            var row2 = CreateRow(content.transform, "MountingRow");
+            var row2 = CreateRow(content.transform, "Mount");
             row2.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.UpperLeft;
             // row2의 높이가 토글 높이(40)보다 작아서 짤리는 현상 방지: flex/minHeight 조정
             row2.GetComponent<LayoutElement>().minHeight = 30; 
 
             CreateText(row2.transform, "Camera Mounting:", 14, FontStyles.Normal, Theme.TextMain);
 
-            var toggleArea = new GameObject("ToggleArea", typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(ToggleGroup), typeof(ContentSizeFitter));
+            var toggleArea = new GameObject("Toggle_Mount", typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(ToggleGroup), typeof(ContentSizeFitter));
             toggleArea.transform.SetParent(row2.transform, false);
             var vToggle = toggleArea.GetComponent<VerticalLayoutGroup>();
             vToggle.spacing = 10; vToggle.childAlignment = TextAnchor.UpperRight;
@@ -655,10 +638,10 @@ namespace RobotSim.Editor
 
             // Visual Manager 추가
             var visualManager = toggleArea.AddComponent<RobotSim.UI.ToggleTabManager>();
-            
+
             // Toggle Height 18
-            var t1 = CreateInteractiveToggle(toggleArea.transform, "Bird-eye", true, 18, tGroup);
-            var t2 = CreateInteractiveToggle(toggleArea.transform, "Hand-eye", false, 18, tGroup);
+            var t1 = CreateInteractiveToggle(toggleArea.transform, "Handeye", true, 18, tGroup);
+            var t2 = CreateInteractiveToggle(toggleArea.transform, "Birdeye", false, 18, tGroup);
 
             visualManager.Tabs = new List<RobotSim.UI.ToggleTabManager.TabItem> { t1, t2 };
             visualManager.Initialize(); // Initialize visuals immediately
