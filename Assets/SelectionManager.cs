@@ -1,6 +1,10 @@
-using UnityEngine;
-using TransformHandles;
 using System.Collections.Generic;
+using TransformHandles;
+using Unity.VisualScripting;
+using UnityEditor.SceneManagement;
+using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.UI;
 
 public class SelectionManager : MonoBehaviour
 {
@@ -10,106 +14,176 @@ public class SelectionManager : MonoBehaviour
     private Handle _activeHandle;
     private InteractableItem _currentSelected;
 
-    void Awake()
-    {
-        Instance = this;
-    }
+    private InteractableItem _currentHovered;
 
-    void Start()
-    {
-        _handleManager = TransformHandleManager.Instance;
-    }
+    void Awake() => Instance = this;
 
-    public void SelectItem(InteractableItem item)
+    void Start() => _handleManager = TransformHandleManager.Instance;
+
+    public void SelectItem(InteractableItem newItem)
     {
-        // 1. Toggle Deselect
-        if (_currentSelected == item)
+        // 1. 동일 아이템 클릭 시 해제 (Toggle)
+        if (_currentSelected == newItem)
         {
             ClearSelection();
             return;
         }
 
-        // 2. Swap Target (Efficient)
-        // [Fix] Add NEW target first, then Remove OLD, then Update.
-        // This prevents the handle from being destroyed if count goes to 0 temporarily.
-        if (_activeHandle != null && _currentSelected != null)
-        {
-            bool added = _handleManager.AddTarget(item.transform, _activeHandle);
-            if (added)
-            {
-                _handleManager.RemoveTarget(_currentSelected.transform, _activeHandle);
-                _currentSelected = item;
-                _activeHandle.ChangeHandleType(HandleType.Position);
-                return;
-            }
-            else
-            {
-                ClearSelection();
-            }
-        }
-        else
-        {
-             ClearSelection();
-        }
+        // 2. 기존 선택 항목이 있다면 깔끔하게 정리
+        ClearSelection();
 
-        // 3. New Creation
-        _currentSelected = item;
+        // 3. 신규 선택 항목 설정 및 시각화
+        _currentSelected = newItem;
+        if (_currentSelected != null) _currentSelected.SetSelected(true);
+
+        // 4. 핸들 생성 및 설정
         if (_handleManager != null)
         {
-            _activeHandle = _handleManager.CreateHandle(item.transform);
-            
-            if (_activeHandle != null)
-            {
-                 _activeHandle.gameObject.SetActive(true);
-                _activeHandle.ChangeHandleType(HandleType.Position);
-            }
+            _activeHandle = _handleManager.CreateHandle(_currentSelected.transform);
+            ConfigureHandle(_activeHandle);
         }
     }
 
     public void ClearSelection()
     {
-        if (_currentSelected != null)
-        {
-            if (_activeHandle != null)
-            {
-                // [CRITICAL FIX] 
-                // RemoveHandle logic in the package DOES NOT clear the _transformHashSet!
-                // We MUST call RemoveTarget explicitly to clean up the Manager's internal state.
-                _handleManager.RemoveTarget(_currentSelected.transform, _activeHandle);
-                
-                // If RemoveTarget didn't destroy it (depends on logic), we ensure it's removed.
-                // Note: RemoveTarget inside Manager automatically calls DestroyHandle if group is empty.
-                // So checking validity or just calling RemoveTarget is usually enough.
-                // But for safety, if it still exists (unexpected), we force remove.
-                if (_activeHandle != null) 
-                {
-                    // Check if object still exists (Unity Object check)
-                    bool handleExists = _activeHandle != null && !_activeHandle.Equals(null); 
-                    if (handleExists) _handleManager.RemoveHandle(_activeHandle);
-                }
-            }
-        }
+        if (_currentSelected == null) return;
+
+        _currentSelected.SetSelected(false);
+        CleanupHandle();
+
         _currentSelected = null;
         _activeHandle = null;
     }
 
-    // Update Loop
+    private bool _isDragging;
+
+    private void ConfigureHandle(Handle handle)
+    {
+        if (handle == null) return;
+        handle.gameObject.SetActive(true);
+        handle.ChangeHandleType(HandleType.Position);
+
+        handle.OnInteractionStartEvent += (h) => _isDragging = true;
+        handle.OnInteractionEndEvent += (h) => _isDragging = false;
+    }
+
+    private void CleanupHandle()
+    {
+        if (_activeHandle == null) return;
+
+        _activeHandle.OnInteractionStartEvent -= (h) => _isDragging = true;
+        _activeHandle.OnInteractionEndEvent -= (h) => _isDragging = false;
+        _isDragging = false;
+
+        if (_currentSelected != null)
+        {
+            _handleManager.RemoveTarget(_currentSelected.transform, _activeHandle);
+        }
+
+        if (!_activeHandle.Equals(null))
+        {
+            _handleManager.RemoveHandle(_activeHandle);
+        }
+    }
+
     void Update()
     {
         if (Input.GetKeyDown(KeyCode.Escape)) ClearSelection();
 
-        // [New] Spacebar Toggle specific to Position <-> Rotation
+        UpdateInteraction();
+
+        // 조작 모드 전환 (Space)
         if (_activeHandle != null && Input.GetKeyDown(KeyCode.Space))
         {
-            if (_activeHandle.type == HandleType.Position)
+            HandleType nextType = (_activeHandle.type == HandleType.Position) ? HandleType.Rotation : HandleType.Position;
+            _activeHandle.ChangeHandleType(nextType);
+        }
+
+        // 외부 입력 동기화
+        if (_activeHandle != null && _currentSelected != null && !_isDragging)
+        {
+            _activeHandle.target.position = _currentSelected.transform.position;
+            _activeHandle.target.rotation = _currentSelected.transform.rotation;
+        }
+    }
+
+    private void UpdateInteraction()
+    {
+        Camera cam = Camera.main;
+        if (cam == null) return;
+
+        bool isOverUI = false;
+        if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
+        {
+            var eventData = new PointerEventData(EventSystem.current) { position = Input.mousePosition };
+            var results = new List<RaycastResult>();
+            EventSystem.current.RaycastAll(eventData, results);
+            if (results.Count > 0 && results[0].gameObject.layer == LayerMask.NameToLayer("UI"))
             {
-                _activeHandle.ChangeHandleType(HandleType.Rotation);
-                Debug.Log("Switched to Rotation Mode");
+                isOverUI = true;
+            }
+        }
+
+        InteractableItem bestInteractable = null;
+        HandleBase handleHit = null;
+        RaycastHit? bestOtherHit = null;
+        float minOtherDistance = float.MaxValue;
+
+        if (!isOverUI)
+        {
+            Ray ray = cam.ScreenPointToRay(Input.mousePosition);
+            RaycastHit[] hits = Physics.RaycastAll(ray);
+
+            foreach (var hit in hits)
+            {
+                var interactable = hit.collider.GetComponentInParent<InteractableItem>();
+                var handle = hit.collider.GetComponentInParent<HandleBase>();
+
+                if (interactable != null)
+                {
+                    if (bestInteractable == null || hit.distance < minOtherDistance)
+                    {
+                        bestInteractable = interactable;
+                    }
+                }
+                else if (handle != null)
+                {
+                    if (handleHit == null) handleHit = handle;
+                }
+                else
+                {
+                    if (hit.distance < minOtherDistance)
+                    {
+                        minOtherDistance = hit.distance;
+                        bestOtherHit = hit;
+                    }
+                }
+            }
+        }
+
+        // --- Hover 처리 ---
+        if (_currentHovered != bestInteractable)
+        {
+            if (_currentHovered != null) _currentHovered.SetHovered(false);
+            _currentHovered = bestInteractable;
+            if (_currentHovered != null) _currentHovered.SetHovered(true);
+        }
+
+        // --- Click 처리 ---
+        if (Input.GetMouseButtonDown(0) && !isOverUI)
+        {
+            if (handleHit != null)
+            {
+                // 핸들 조작은 매니저가 처리하므로 무시
+            }
+            else if (bestInteractable != null)
+            {
+                SelectItem(bestInteractable);
             }
             else
             {
-                _activeHandle.ChangeHandleType(HandleType.Position);
-                Debug.Log("Switched to Position Mode");
+                // 아무것도 안 맞았거나 일반 물체 클릭 시 해제
+                ClearSelection();
             }
         }
     }
