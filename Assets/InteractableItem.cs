@@ -1,47 +1,60 @@
-using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.EventSystems; // 필수 네임스페이스
-public class InteractableItem : MonoBehaviour, IPointerClickHandler, IPointerEnterHandler, IPointerExitHandler
-{
-    public Material highlightMat;
 
-    private List<Material> originalMat;
-    private List<Renderer> Renderers;
+/// <summary>
+/// Passive component that manages visual states (Hover/Selection) for an object.
+/// Logic is controlled externally by SelectionManager.
+/// </summary>
+public class InteractableItem : MonoBehaviour
+{
+    private Outline _outline;
+    private bool _isSelected;
+    private bool _isHovered;
 
     void Start()
     {
-        Renderers = new List<Renderer>(GetComponentsInChildren<Renderer>(true));
-        originalMat = new List<Material>();
-        foreach(var r in Renderers)
+        _outline = gameObject.GetComponent<Outline>();
+        if (_outline == null)
         {
-            originalMat.Add(r.material);
+            _outline = gameObject.AddComponent<Outline>();
         }
+        
+        _outline.OutlineMode = Outline.Mode.OutlineAll;
+        _outline.enabled = false;
     }
 
-    // 마우스가 아이템 위에 올라갔을 때 (하이라이트 효과)
-    public void OnPointerEnter(PointerEventData eventData)
+    public void SetSelected(bool isSelected)
     {
-        foreach (var r in Renderers)
-        {
-            r.material = highlightMat;
-        }
+        _isSelected = isSelected;
+        UpdateOutlineState();
     }
 
-    // 마우스가 나갔을 때
-    public void OnPointerExit(PointerEventData eventData)
+    public void SetHovered(bool isHovered)
     {
-        for (int i = 0; i < Renderers.Count; i++)
-        {
-            Renderers[i].material = originalMat[i];
-        }
+        _isHovered = isHovered;
+        UpdateOutlineState();
     }
 
-    // 클릭했을 때 (로봇의 타겟으로 설정하거나 선택)
-    public void OnPointerClick(PointerEventData eventData)
+    private void UpdateOutlineState()
     {
-        Debug.Log($"{gameObject.name}이 선택되었습니다!");
+        if (_outline == null) return;
 
-        // 예: 전역 매니저에게 "내가 이제 타겟이야"라고 알림
-        // SimulationManager.Instance.SetTarget(this.transform);
+        // Priority 1: Selected (Cyan, Thick)
+        if (_isSelected)
+        {
+            _outline.enabled = true;
+            _outline.OutlineColor = Color.cyan;
+            _outline.OutlineWidth = 6f;
+        }
+        // Priority 2: Hovered (White, Thin)
+        else if (_isHovered)
+        {
+            _outline.enabled = true;
+            _outline.OutlineColor = Color.white;
+            _outline.OutlineWidth = 4f;
+        }
+        else
+        {
+            _outline.enabled = false;
+        }
     }
 }
