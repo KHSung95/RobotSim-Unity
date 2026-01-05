@@ -40,8 +40,6 @@ namespace RobotSim.UI
             {
                 if (tab.Toggle != null)
                 {
-                    // Clean up existing listeners to avoid duplicates
-                    tab.Toggle.onValueChanged.RemoveAllListeners();
                     tab.Toggle.onValueChanged.AddListener((isOn) => UpdateVisuals());
                 }
             }
