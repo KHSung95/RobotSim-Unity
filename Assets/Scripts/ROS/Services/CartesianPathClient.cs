@@ -1,9 +1,8 @@
 using UnityEngine;
 using RosSharp.RosBridgeClient;
 using RosSharp.RosBridgeClient.MessageTypes.Moveit;
-using RosSharp.RosBridgeClient.MessageTypes.Geometry;
-using RosSharp.RosBridgeClient.MessageTypes.Trajectory;
-using System.Collections.Generic;
+
+using RosPose = RosSharp.RosBridgeClient.MessageTypes.Geometry.Pose;
 
 namespace RobotSim.ROS.Services
 {
@@ -31,7 +30,7 @@ namespace RobotSim.ROS.Services
             trajectoryPublisher = GetComponent<JointTrajectoryPublisher>();
         }
 
-        public void CallService(RosSharp.RosBridgeClient.MessageTypes.Geometry.Pose[] waypoints)
+        public void CallService(RosPose[] waypoints)
         {
             if (Connector == null || Connector.RosSocket == null)
             {

@@ -1,5 +1,6 @@
 using UnityEngine;
 using RosSharp.Urdf;
+using RosSharp; // [New] For HingeJointLimitsManager
 using System.Collections.Generic;
 using RobotSim.Utils;
 
@@ -31,6 +32,9 @@ namespace RobotSim.Robot
 
         private Transform _tcpTransform;
         private List<UrdfJoint> _joints = new List<UrdfJoint>();
+        // [New] Limit Managers Cache
+        private List<HingeJointLimitsManager> _limitManagers = new List<HingeJointLimitsManager>();
+        
         private string[] _jointNames;
         private Dictionary<string, UrdfJoint> _jointMap = new Dictionary<string, UrdfJoint>();
 
@@ -62,7 +66,17 @@ namespace RobotSim.Robot
             
             _joints.Clear();
             _jointMap.Clear();
+            _limitManagers.Clear(); // [New] Clear cache
             List<string> names = new List<string>();
+
+            // Helper to add joint and limit manager
+            void AddJoint(UrdfJoint j)
+            {
+                _joints.Add(j);
+                _jointMap.Add(j.JointName, j);
+                _limitManagers.Add(j.GetComponent<HingeJointLimitsManager>()); // [New] Cache Limit Manager
+                names.Add(j.JointName);
+            }
 
             // 1. Check for manual overrides first
             if (OverrideJoints != null && OverrideJoints.Count > 0)
@@ -71,9 +85,7 @@ namespace RobotSim.Robot
                 {
                     if (j != null && !string.IsNullOrEmpty(j.JointName) && !names.Contains(j.JointName))
                     {
-                        _joints.Add(j);
-                        _jointMap.Add(j.JointName, j);
-                        names.Add(j.JointName);
+                        AddJoint(j);
                     }
                 }
                 Debug.Log($"[RobotStateProvider] Using {names.Count} manually assigned joints.");
@@ -86,10 +98,7 @@ namespace RobotSim.Robot
                     if (!string.IsNullOrEmpty(j.JointName) && !names.Contains(j.JointName))
                     {
                         if (j.JointType == UrdfJoint.JointTypes.Fixed) continue;
-
-                        _joints.Add(j);
-                        _jointMap.Add(j.JointName, j);
-                        names.Add(j.JointName);
+                        AddJoint(j);
                     }
                 }
                 Debug.Log($"[RobotStateProvider] Auto-discovered {names.Count} joints.");
@@ -112,29 +121,47 @@ namespace RobotSim.Robot
 
         private void UpdateState()
         {
-            // 1. Update Joint Angles (FK)
+            // 1. Update Joint Angles (FK) with Clamping
             for (int i = 0; i < _joints.Count; i++)
             {
-                jointAnglesDegrees[i] = (float)_joints[i].GetPosition() * Mathf.Rad2Deg;
+                float rawAngle = (float)_joints[i].GetPosition() * Mathf.Rad2Deg;
+                
+                // [New] Clamp detection
+                if (_limitManagers[i] != null)
+                {
+                    // ROS Limits are inverted from Unity Limits
+                    // Unity Min = -ROS_Upper -> ROS_Upper = -Unity_Min
+                    // Unity Max = -ROS_Lower -> ROS_Lower = -Unity_Max
+                    // So ROS Range is [-Unity_Max, -Unity_Min]
+                    
+                    float rosLimitMin = -_limitManagers[i].LargeAngleLimitMax;
+                    float rosLimitMax = -_limitManagers[i].LargeAngleLimitMin;
+
+                    // Ensure min < max just in case
+                    if (rosLimitMin > rosLimitMax) 
+                    {
+                        float temp = rosLimitMin; rosLimitMin = rosLimitMax; rosLimitMax = temp;
+                    }
+
+                    // Apply Clamp
+                    rawAngle = Mathf.Clamp(rawAngle, rosLimitMin, rosLimitMax);
+                }
+
+                jointAnglesDegrees[i] = rawAngle;
             }
 
             // 2. Update TCP Pose (IK) relative to Base
             if (_tcpTransform != null && RobotBase != null)
             {
                 Vector3 relativePos = RobotBase.InverseTransformPoint(_tcpTransform.position);
-                
-                // Unity -> ROS Coordinate Conversion
-                // ROS X (Forward) = Unity Z
-                // ROS Y (Left) = Unity -X
-                // ROS Z (Up) = Unity Y
-                tcpPositionRos = new Vector3(relativePos.z, -relativePos.x, relativePos.y);
+                UnityEngine.Quaternion relativeRot = UnityEngine.Quaternion.Inverse(RobotBase.rotation) * _tcpTransform.rotation;
 
-                // Rotation conversion
-                Quaternion relativeRot = Quaternion.Inverse(RobotBase.rotation) * _tcpTransform.rotation;
-                // Convert to ROS Euler (extrinsic XYZ or similar, simplified for UI)
-                // In ROS, often RPY is used. Here we provide a consistent mapping.
-                Vector3 euler = relativeRot.eulerAngles;
-                tcpRotationEulerRos = new Vector3(euler.z, -euler.x, euler.y); 
+                // Unity -> ROS Coordinate Conversion using ROS# standard extensions
+                tcpPositionRos = relativePos.Unity2Ros();
+
+                // Convert to ROS Euler (using conversion extensions)
+                UnityEngine.Quaternion rosRot = relativeRot.Unity2Ros();
+                tcpRotationEulerRos = rosRot.eulerAngles; 
             }
         }
     }

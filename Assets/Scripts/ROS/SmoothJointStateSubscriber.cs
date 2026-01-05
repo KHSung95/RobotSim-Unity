@@ -62,12 +62,18 @@ namespace RobotSim.Robot
                         var joint = StateProvider.JointMap[name];
                         float current = (float)joint.GetPosition(); // Assuming Rad
                         
-                        // Lerp for smoothness
-                        float next = Mathf.Lerp(current, targetVal, Time.deltaTime * SmoothingSpeed);
-                        float diff = next - current;
+                        // [Fix] Shortest Path Interpolation (in Radians)
+                        float angleDiff = targetVal - current;
+                        
+                        // Unwrap (-PI to PI)
+                        while (angleDiff > Mathf.PI) angleDiff -= 2 * Mathf.PI;
+                        while (angleDiff < -Mathf.PI) angleDiff += 2 * Mathf.PI;
+
+                        // Apply smoothing to the delta
+                        float step = Mathf.Lerp(0, angleDiff, Time.deltaTime * SmoothingSpeed);
                         
                         // Apply Delta
-                        joint.UpdateJointState(diff); 
+                        joint.UpdateJointState(step); 
                     }
                 }
             }

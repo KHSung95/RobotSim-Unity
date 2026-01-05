@@ -1,12 +1,13 @@
 using UnityEngine;
 using Newtonsoft.Json;
+
+using RosSharp;
 using RosSharp.RosBridgeClient;
 using RosSharp.RosBridgeClient.MessageTypes.Std;
 
-using Transform = UnityEngine.Transform;
 using Pose = RosSharp.RosBridgeClient.MessageTypes.Geometry.Pose;
-using Point = RosSharp.RosBridgeClient.MessageTypes.Geometry.Point;
-using Quaternion = RosSharp.RosBridgeClient.MessageTypes.Geometry.Quaternion;
+using RosPoint = RosSharp.RosBridgeClient.MessageTypes.Geometry.Point;
+using RosQuaternion = RosSharp.RosBridgeClient.MessageTypes.Geometry.Quaternion;
 
 namespace RobotSim.ROS
 {
@@ -70,14 +71,10 @@ namespace RobotSim.ROS
             if (Connector == null) Connector = GetComponent<RosConnector>();
             if (Connector == null)
             {
-                // Fallback: try to find one in the scene
                 Connector = FindFirstObjectByType<RosConnector>();
             }
         }
 
-        /// <summary>
-        /// Call this method to send the request to ROS 2 via ROS#.
-        /// </summary>
         public void SendMoveRequest()
         {
             if (Connector == null || Connector.RosSocket == null)
@@ -91,34 +88,19 @@ namespace RobotSim.ROS
                 return;
             }
 
-            // 1. Convert Unity Coordinate System to ROS Coordinate System
-            // Using the manual conversion pattern found in MovePlanClient.cs
-            // Position: Unity(x,y,z) -> ROS(z, -x, y)
-            var rosPos = new Point(
-                targetTransform.position.z,
-                -targetTransform.position.x,
-                targetTransform.position.y
-            );
+            // 1. Convert Unity Pose to ROS Pose using ROS# standard extensions
+            // This performs (z, -x, y) for position and (-z, x, -y, w) for rotation
+            Vector3 rosPos = targetTransform.position.Unity2Ros();
+            Quaternion rosRot = targetTransform.rotation.Unity2Ros();
 
-            // Rotation: Unity(x,y,z,w) -> ROS(-z, x, -y, w)
-            var relRot = targetTransform.rotation;
-            var rosRot = new RosSharp.RosBridgeClient.MessageTypes.Geometry.Quaternion(
-                -relRot.z,
-                relRot.x,
-                -relRot.y,
-                relRot.w
-            );
-
-            // 2. Create the Request Message
             var poseMsg = new Pose
             {
-                position = rosPos,
-                orientation = rosRot
+                position = new RosPoint(rosPos.x, rosPos.y, rosPos.z),
+                orientation = new RosQuaternion(rosRot.x, rosRot.y, rosRot.z, rosRot.w)
             };
 
             var request = new CustomServiceMessages.MoveToPoseRequest(poseMsg);
 
-            // 3. Send Service Request
             Debug.Log($"[MoveRobotToPoseClient] Sending request to {ServiceName}...");
 
             Connector.RosSocket.CallService<CustomServiceMessages.MoveToPoseRequest, CustomServiceMessages.MoveToPoseResponse>(
@@ -130,33 +112,11 @@ namespace RobotSim.ROS
 
         private void OnServiceResponse(CustomServiceMessages.MoveToPoseResponse response)
         {
-            if (response == null)
-            {
-                Debug.LogError("[MoveRobotToPoseClient] Service call returned null response.");
-                return;
-            }
-
-            // 4. Handle Response
+            if (response == null) return;
             if (response.success)
-            {
                 Debug.Log($"[MoveRobotToPoseClient] Success: {response.message}");
-            }
             else
-            {
                 Debug.LogWarning($"[MoveRobotToPoseClient] Failed: {response.message}");
-            }
-        }
-
-        private void OnDrawGizmos()
-        {
-            if (showGizmos && targetTransform != null)
-            {
-                Gizmos.color = gizmoColor;
-                Gizmos.DrawWireSphere(targetTransform.position, gizmoRadius);
-
-                // Draw forward direction
-                Gizmos.DrawLine(targetTransform.position, targetTransform.position + targetTransform.forward * 0.3f);
-            }
         }
     }
 }
