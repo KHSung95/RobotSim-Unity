@@ -1,0 +1,21 @@
+{
+  "rootNamespace": "",
+  "defineConstraints": [],
+  "versionDefines": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": true,
+  "autoReferenced": true,
+  "excludePlatforms": [],
+  "precompiledReferences": [
+    "Newtonsoft.Json.dll",
+    "websocket-sharp.dll",
+    "System.Text.Json.dll",
+    "System.Threading.Channels.dll",
+    "Microsoft.Bcl.AsyncInterfaces.dll",
+    "System.IO.Pipelines.dll"
+  ],
+  "noEngineReferences": false,
+  "references": [],
+  "name": "siemens.ros-sharp.Runtime",
+  "includePlatforms": []
+}
