@@ -2,16 +2,16 @@ using UnityEngine;
 
 public class Freecam : MonoBehaviour
 {
-    public float moveSpeed = 20f;         // 기본 이동 속도
-    public float shiftMultiplier = 2.5f;  // Shift 누를 때 가속
-    public float lookSensitivity = 2f;    // 마우스 민감도
+    public float moveSpeed = 20f;         // Base Move Speed
+    public float shiftMultiplier = 2.5f;  // Shift Multiplier
+    public float lookSensitivity = 2f;    // Mouse Sensitivity
 
     private float rotationX = 0f;
     private float rotationY = 0f;
 
     void Start()
     {
-        // 현재 카메라의 회전값으로 초기화
+        // Initialize camera rotation
         Vector3 rot = transform.localRotation.eulerAngles;
         rotationX = rot.y;
         rotationY = rot.x;
@@ -19,33 +19,41 @@ public class Freecam : MonoBehaviour
 
     void Update()
     {
-        // 1. 회전 (마우스 우클릭 시)
+        // 1. Rotation (Right Click)
         if (Input.GetMouseButton(1))
         {
             rotationX += Input.GetAxis("Mouse X") * lookSensitivity;
             rotationY -= Input.GetAxis("Mouse Y") * lookSensitivity;
-            rotationY = Mathf.Clamp(rotationY, -90f, 90f); // 수직 회전 제한
+            rotationY = Mathf.Clamp(rotationY, -90f, 90f);
 
             transform.localRotation = Quaternion.Euler(rotationY, rotationX, 0);
         }
 
-        // 2. 이동 속도 계산
+        // 2. Move Speed
         float currentSpeed = moveSpeed;
         if (Input.GetKey(KeyCode.LeftShift)) currentSpeed *= shiftMultiplier;
 
-        // 3. 이동 (WASD + QE)
-        float moveH = Input.GetAxis("Horizontal"); // A, D
-        float moveV = Input.GetAxis("Vertical");   // W, S
+        // [MODIFIED] Block Camera Movement if Robot is Selected
+        if (SelectionManager.Instance != null && SelectionManager.Instance.IsSelected)
+        {
+            // Do nothing, let SelectionManager handle Gizmo movement
+        }
+        else
+        {
+            // 3. Movement (WASD + QE)
+            float moveH = Input.GetAxis("Horizontal"); // A, D
+            float moveV = Input.GetAxis("Vertical");   // W, S
 
-        Vector3 moveDir = (transform.forward * moveV) + (transform.right * moveH);
+            Vector3 moveDir = (transform.forward * moveV) + (transform.right * moveH);
 
-        // Q, E로 수직 상승/하강
-        if (Input.GetKey(KeyCode.E)) moveDir += Vector3.up;
-        if (Input.GetKey(KeyCode.Q)) moveDir += Vector3.down;
+            // Q, E for Up/Down
+            if (Input.GetKey(KeyCode.E)) moveDir += Vector3.up;
+            if (Input.GetKey(KeyCode.Q)) moveDir += Vector3.down;
 
-        transform.position += moveDir * currentSpeed * Time.deltaTime;
+            transform.position += moveDir * currentSpeed * Time.deltaTime;
+        }
 
-        // 4. 마우스 휠로 이동 속도 실시간 조절
+        // 4. Adjust Speed with Scroll Wheel
         moveSpeed += Input.GetAxis("Mouse ScrollWheel") * 10f;
         moveSpeed = Mathf.Max(moveSpeed, 0.1f);
     }

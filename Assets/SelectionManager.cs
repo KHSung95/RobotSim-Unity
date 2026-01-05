@@ -5,7 +5,6 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
-
 public class SelectionManager : MonoBehaviour
 {
     public static SelectionManager Instance { get; private set; }
@@ -13,15 +12,22 @@ public class SelectionManager : MonoBehaviour
     private TransformHandleManager _handleManager;
     private Handle _activeHandle;
     private InteractableItem _currentSelected;
-
     private InteractableItem _currentHovered;
 
-    void Awake() => Instance = this;
+    private Transform _currentSelectedTransform;
 
-    void Start() => _handleManager = TransformHandleManager.Instance;
+    public bool IsRobotSelected => _currentSelected != null && _currentSelected.GetComponent<RobotSim.Robot.RobotStateProvider>() != null;
+    public bool IsSelected => _currentSelected != null;
+
+    private RobotSim.ROS.MoveRobotToPoseClient _robotClient;
+
+    private void Awake() => Instance = this;
+    private void Start() => _handleManager = TransformHandleManager.Instance;
 
     public void SelectItem(InteractableItem newItem)
     {
+        if (newItem == null) return;
+
         // 1. 동일 아이템 클릭 시 해제 (Toggle)
         if (_currentSelected == newItem)
         {
@@ -29,18 +35,46 @@ public class SelectionManager : MonoBehaviour
             return;
         }
 
-        // 2. 기존 선택 항목이 있다면 깔끔하게 정리
+        // 2. 기존 선택 항목이 있다면 정리
         ClearSelection();
 
-        // 3. 신규 선택 항목 설정 및 시각화
+        // 3. 신규 선택 항목 설정
         _currentSelected = newItem;
-        if (_currentSelected != null) _currentSelected.SetSelected(true);
+        _currentSelected.SetSelected(true);
 
-        // 4. 핸들 생성 및 설정
+        // 4. 핸들 생성
         if (_handleManager != null)
         {
-            _activeHandle = _handleManager.CreateHandle(_currentSelected.transform);
+            // Robot인 경우 Target Gizmo(Ghost)를 핸들 타겟으로 설정
+            if (IsRobotSelected)
+            {
+                _robotClient = _currentSelected.GetComponent<RobotSim.ROS.MoveRobotToPoseClient>();
+                _currentSelectedTransform = _robotClient.targetTransform;
+            }
+            else
+            {
+                _robotClient = null;
+                _currentSelectedTransform = _currentSelected.transform;
+            }
+
+            _activeHandle = _handleManager.CreateHandle(_currentSelectedTransform);
             ConfigureHandle(_activeHandle);
+
+            // [New] 로봇이 선택된 경우에만 Target Gizmo 메쉬 보이기
+            if (IsRobotSelected) SetTargetGizmoVisibility(true);
+        }
+    }
+
+    private void SetTargetGizmoVisibility(bool visible)
+    {
+        if (_robotClient != null && _robotClient.targetTransform != null)
+        {
+            // Root 뿐만 아니라 자식에 MeshRenderer가 있을 수 있으므로 GetComponentsInChildren 사용
+            var renderers = _robotClient.targetTransform.GetComponentsInChildren<Renderer>();
+            foreach (var r in renderers)
+            {
+                r.enabled = visible;
+            }
         }
     }
 
@@ -48,11 +82,15 @@ public class SelectionManager : MonoBehaviour
     {
         if (_currentSelected == null) return;
 
+        // [New] 해제 전 기즈모 숨기기
+        SetTargetGizmoVisibility(false);
+
         _currentSelected.SetSelected(false);
         CleanupHandle();
 
         _currentSelected = null;
         _activeHandle = null;
+        _robotClient = null;
     }
 
     private bool _isDragging;
@@ -63,21 +101,24 @@ public class SelectionManager : MonoBehaviour
         handle.gameObject.SetActive(true);
         handle.ChangeHandleType(HandleType.Position);
 
-        handle.OnInteractionStartEvent += (h) => _isDragging = true;
-        handle.OnInteractionEndEvent += (h) => _isDragging = false;
+        handle.OnInteractionStartEvent += OnHandleInteractionStart;
+        handle.OnInteractionEndEvent += OnHandleInteractionEnd;
     }
+
+    private void OnHandleInteractionStart(Handle h) => _isDragging = true;
+    private void OnHandleInteractionEnd(Handle h) => _isDragging = false;
 
     private void CleanupHandle()
     {
         if (_activeHandle == null) return;
 
-        _activeHandle.OnInteractionStartEvent -= (h) => _isDragging = true;
-        _activeHandle.OnInteractionEndEvent -= (h) => _isDragging = false;
+        _activeHandle.OnInteractionStartEvent -= OnHandleInteractionStart;
+        _activeHandle.OnInteractionEndEvent -= OnHandleInteractionEnd;
         _isDragging = false;
 
         if (_currentSelected != null)
         {
-            _handleManager.RemoveTarget(_currentSelected.transform, _activeHandle);
+            _handleManager.RemoveTarget(_currentSelectedTransform, _activeHandle);
         }
 
         if (!_activeHandle.Equals(null))
@@ -99,11 +140,55 @@ public class SelectionManager : MonoBehaviour
             _activeHandle.ChangeHandleType(nextType);
         }
 
-        // 외부 입력 동기화
-        if (_activeHandle != null && _currentSelected != null && !_isDragging)
+        // Gizmo Control Logic
+        if (_activeHandle != null && !_isDragging)
         {
-            _activeHandle.target.position = _currentSelected.transform.position;
-            _activeHandle.target.rotation = _currentSelected.transform.rotation;
+             // Gizmo Movement (WASD + QE) in World Space
+             float speed = 1.0f; // Default Gizmo Speed
+             if (Input.GetKey(KeyCode.LeftShift)) speed *= 3f;
+             
+             Vector3 moveDir = Vector3.zero;
+             if (Input.GetKey(KeyCode.W)) moveDir += Vector3.forward;
+             if (Input.GetKey(KeyCode.S)) moveDir += Vector3.back;
+             if (Input.GetKey(KeyCode.A)) moveDir += Vector3.left;
+             if (Input.GetKey(KeyCode.D)) moveDir += Vector3.right;
+             if (Input.GetKey(KeyCode.Q)) moveDir += Vector3.up;
+             if (Input.GetKey(KeyCode.E)) moveDir += Vector3.down;
+
+             if (moveDir != Vector3.zero)
+             {
+                 _activeHandle.target.Translate(moveDir * speed * Time.deltaTime, Space.World);
+                 
+                 // [Sync] Update actual object to match handle's target
+                 if (_currentSelectedTransform != null)
+                 {
+                     _currentSelectedTransform.position = _activeHandle.target.position;
+                     _currentSelectedTransform.rotation = _activeHandle.target.rotation;
+                 }
+             }
+
+             // ROS Service Call
+             if (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter))
+             {
+                 if (_robotClient != null)
+                 {
+                     Debug.Log("[SelectionManager] Enter pressed. Sending Robot Move Request...");
+                     _robotClient.SendMoveRequest();
+                 }
+             }
+             
+             // Reset Logic (R)
+             if (Input.GetKeyDown(KeyCode.R))
+             {
+                  // Optional: Reset logic if needed
+             }
+        }
+
+        // 외부 입력 동기화 (Robot이 아닐 때만 Sync)
+        if (_activeHandle != null && _currentSelected != null && !_isDragging && !IsRobotSelected)
+        {
+            _activeHandle.target.position = _currentSelectedTransform.position;
+            _activeHandle.target.rotation = _currentSelectedTransform.rotation;
         }
     }
 

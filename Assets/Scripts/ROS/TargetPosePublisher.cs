@@ -1,7 +1,8 @@
-using System;
 using UnityEngine;
 using RobotSim.Robot;
 using RosSharp.RosBridgeClient.MessageTypes.Std;
+using RosPoint = RosSharp.RosBridgeClient.MessageTypes.Geometry.Point;
+using RosQuaternion = RosSharp.RosBridgeClient.MessageTypes.Geometry.Quaternion;
 using PoseStamped = RosSharp.RosBridgeClient.MessageTypes.Geometry.PoseStamped;
 
 namespace RosSharp.RosBridgeClient
@@ -67,43 +68,29 @@ namespace RosSharp.RosBridgeClient
             if (TargetObject == null) return;
 
             // 1. Calculate current Unity Pose relative to Reference
-            Vector3 currentUnityPos;
-            Quaternion currentUnityRot;
+            Vector3 relUnityPos;
+            Quaternion relUnityRot;
 
             if (ReferenceObject != null)
             {
-                currentUnityPos = ReferenceObject.InverseTransformPoint(TargetObject.position);
-                currentUnityRot = Quaternion.Inverse(ReferenceObject.rotation) * TargetObject.rotation;
+                relUnityPos = ReferenceObject.InverseTransformPoint(TargetObject.position);
+                relUnityRot = Quaternion.Inverse(ReferenceObject.rotation) * TargetObject.rotation;
             }
             else
             {
-                currentUnityPos = TargetObject.localPosition;
-                currentUnityRot = TargetObject.localRotation;
+                relUnityPos = TargetObject.localPosition;
+                relUnityRot = TargetObject.localRotation;
             }
 
-            // 2. Convert to ROS Coordinate System
-            // Position: (x, y, z) -> (z, -x, y)
-            message.pose.position.x = currentUnityPos.z;
-            message.pose.position.y = -currentUnityPos.x;
-            message.pose.position.z = currentUnityPos.y;
+            // 2. Convert to ROS Coordinate System using ROS# standard extensions
+            Vector3 rosPos = relUnityPos.Unity2Ros();
+            Quaternion rosRot = relUnityRot.Unity2Ros();
 
-            // Rotation: (x, y, z, w) -> (-z, x, -y, w)
-            message.pose.orientation.x = -currentUnityRot.z;
-            message.pose.orientation.y = currentUnityRot.x;
-            message.pose.orientation.z = -currentUnityRot.y;
-            message.pose.orientation.w = currentUnityRot.w;
+            message.pose.position = new RosPoint(rosPos.x, rosPos.y, rosPos.z);
+            message.pose.orientation = new RosQuaternion(rosRot.x, rosRot.y, rosRot.z, rosRot.w);
 
             Publish(message);
-            
-            LastSentPosition = currentUnityPos;
-
-            // Detailed Debug
-            string logInfo = $"[TargetPosePublisher] Sent!\n" +
-                             $"Unity Local Pos: {currentUnityPos.ToString("F4")}\n" +
-                             $"ROS Pos (z,-x,y): ({message.pose.position.x:F4}, {message.pose.position.y:F4}, {message.pose.position.z:F4})";
-            Debug.Log(logInfo);
+            Debug.Log($"[TargetPosePublisher] Published relative pose to {Topic} using Unity2Ros extensions.");
         }
-
-        public Vector3 LastSentPosition { get; private set; }
     }
 }

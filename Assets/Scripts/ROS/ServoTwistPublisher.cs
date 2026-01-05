@@ -1,6 +1,11 @@
 using UnityEngine;
+
+using RosSharp;
 using RosSharp.RosBridgeClient;
-using RosSharp.RosBridgeClient.MessageTypes.Geometry;
+
+using TwistStamped = RosSharp.RosBridgeClient.MessageTypes.Geometry.TwistStamped;
+using Twist = RosSharp.RosBridgeClient.MessageTypes.Geometry.Twist;
+using RosVector3 = RosSharp.RosBridgeClient.MessageTypes.Geometry.Vector3;
 using RosSharp.RosBridgeClient.MessageTypes.Std;
 
 namespace RobotSim.ROS
@@ -16,20 +21,18 @@ namespace RobotSim.ROS
             base.Start();
         }
 
-        public void PublishCommand(UnityEngine.Vector3 linear, UnityEngine.Vector3 angular)
+        public void PublishCommand(Vector3 linear, Vector3 angular)
         {
-            // Unity (Left-Handed, Y-up) -> ROS (Right-Handed, Z-up)
-            // ROS X (Forward) = Unity Z (Forward)
-            // ROS Y (Left)    = Unity -X (Left)
-            // ROS Z (Up)      = Unity Y (Up)
-            
+            Vector3 rosLin = linear.Unity2Ros();
+            Vector3 rosAng = angular.Unity2Ros();
+
             var msg = new TwistStamped
             {
                 header = new Header { frame_id = FrameId },
                 twist = new Twist
                 {
-                    linear = new RosSharp.RosBridgeClient.MessageTypes.Geometry.Vector3 { x = linear.z, y = -linear.x, z = linear.y },
-                    angular = new RosSharp.RosBridgeClient.MessageTypes.Geometry.Vector3 { x = angular.z, y = -angular.x, z = angular.y } 
+                    linear = new RosVector3(rosLin.x, rosLin.y, rosLin.z),
+                    angular = new RosVector3(rosAng.x, rosLin.y, rosLin.z)
                 }
             };
             

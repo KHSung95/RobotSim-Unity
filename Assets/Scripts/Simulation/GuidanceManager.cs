@@ -2,6 +2,7 @@ using UnityEngine;
 using System.Collections.Generic;
 using RobotSim.Sensors;
 using RobotSim.ROS.Services;
+using RobotSim.ROS;
 using RobotSim.Robot;
 
 namespace RobotSim.Simulation
@@ -15,7 +16,7 @@ namespace RobotSim.Simulation
         [Header("Industrial Logic (T_ic)")]
         public Transform RobotFlange; // TCP
         public VirtualCameraMount CamMount;
-        public MovePlanClient Mover;
+        public MoveRobotToPoseClient Mover;
         public RobotStateProvider RobotState;
 
         [Header("Saved Masters")]
@@ -33,7 +34,7 @@ namespace RobotSim.Simulation
         {
             if (PCG == null) PCG = FindObjectOfType<PointCloudGenerator>();
             if (CamMount == null) CamMount = FindObjectOfType<VirtualCameraMount>();
-            if (Mover == null) Mover = FindObjectOfType<MovePlanClient>();
+            if (Mover == null) Mover = FindObjectOfType<MoveRobotToPoseClient>();
             if (RobotState == null) RobotState = FindObjectOfType<RobotStateProvider>();
             // 시작 시 PCG에게 "우리의 기준은 로봇 베이스다"라고 알려줌
             if (PCG != null && RobotState.RobotBase != null)
@@ -89,14 +90,12 @@ namespace RobotSim.Simulation
                 Vector3 targetPos = currentTcpPos + moveDelta;
                 Quaternion targetRot = rotDelta * currentTcpRot;
 
-                GameObject shim = new GameObject("GuidanceTarget_Shim");
-                shim.transform.position = targetPos;
-                shim.transform.rotation = targetRot;
+                // Sync Target Transform of the Client
+                Mover.targetTransform.position = targetPos;
+                Mover.targetTransform.rotation = targetRot;
 
-                Debug.Log($"[GuidanceManager] Executing IK Move to {targetPos}");
-                Mover.PlanAndExecute(shim.transform);
-
-                Destroy(shim, 1.0f);
+                Debug.Log($"[GuidanceManager] Executing IK Move (Service) to {targetPos}");
+                Mover.SendMoveRequest();
             }
         }
     }

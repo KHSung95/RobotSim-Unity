@@ -35,21 +35,8 @@ public class RosConnectionMonitor : MonoBehaviour
         GUI.Box(area, "ROS Connection Monitor");
         GUILayout.BeginArea(new Rect(area.x + 10, area.y + 30, width - 20, height - 40));
 
-        // 1. Publisher Info
-        GUILayout.Label("<b>Target Pose (Last Sent)</b>");
-        if (targetPublisher != null)
-        {
-            var p = targetPublisher.LastSentPosition;
-            GUILayout.Label($"Pos: ({p.x:F3}, {p.y:F3}, {p.z:F3})");
-        }
-        else
-        {
-            GUILayout.Label("TargetPublisher not found");
-        }
-
         GUILayout.Space(10);
 
-        // 2. Received Joint States (from actual robot)
         GUILayout.Label("<b>Current Robot Joints (Deg)</b>");
         if (joints != null && joints.Length > 0)
         {

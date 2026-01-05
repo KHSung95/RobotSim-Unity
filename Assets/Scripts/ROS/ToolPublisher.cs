@@ -1,8 +1,11 @@
 using UnityEngine;
 using RosSharp.RosBridgeClient.MessageTypes.Moveit;
-using RosSharp.RosBridgeClient.MessageTypes.Geometry;
 using RosSharp.RosBridgeClient.MessageTypes.Shape;
 using RosSharp.RosBridgeClient.MessageTypes.Std;
+
+using RosPose = RosSharp.RosBridgeClient.MessageTypes.Geometry.Pose;
+using RosQuaternion = RosSharp.RosBridgeClient.MessageTypes.Geometry.Quaternion;
+using RosPoint = RosSharp.RosBridgeClient.MessageTypes.Geometry.Point;
 
 namespace RosSharp.RosBridgeClient
 {
@@ -65,7 +68,7 @@ namespace RosSharp.RosBridgeClient
 
             // Initialize Lists
             message.@object.primitives = new SolidPrimitive[1];
-            message.@object.primitive_poses = new RosSharp.RosBridgeClient.MessageTypes.Geometry.Pose[1];
+            message.@object.primitive_poses = new RosPose[1];
         }
 
         public void PublishTool(sbyte operation)
@@ -125,14 +128,13 @@ namespace RosSharp.RosBridgeClient
                      size.y = capsule.height * transform.lossyScale.y;
                 }
             }
+
+            UnityEngine.Vector3 rosSize = size.Unity2RosScale();
             
             switch (shapeType)
             {
                 case ShapeType.Box:
-                    // Unity Z (Forward) -> ROS X (Forward)
-                    // Unity X (Right)   -> ROS -Y (Right)
-                    // Unity Y (Up)      -> ROS Z (Up)
-                    primitive.dimensions = new double[] { size.z, size.x, size.y };
+                    primitive.dimensions = new double[] { rosSize.x, rosSize.y, rosSize.z };
                     break;
                 case ShapeType.Sphere:
                     primitive.dimensions = new double[] { size.x * 0.5f };
@@ -162,8 +164,8 @@ namespace RosSharp.RosBridgeClient
 
         private void UpdatePose()
         {
-            UnityEngine.Vector3 unityPos;
-            UnityEngine.Quaternion unityRot;
+            Vector3 unityPos;
+            Quaternion unityRot;
 
             // Calculate pose relative to the ATTACH LINK
             if (AttachLinkTransform != null)
@@ -178,22 +180,14 @@ namespace RosSharp.RosBridgeClient
                 unityRot = transform.localRotation;
             }
 
-            // Convert to ROS Coordinate System (Right Handed)
-            message.@object.primitive_poses[0] = new RosSharp.RosBridgeClient.MessageTypes.Geometry.Pose
+            // Convert to ROS Coordinate System (Right Handed) using ROS# standard extensions
+            UnityEngine.Vector3 rosPos = unityPos.Unity2Ros();
+            UnityEngine.Quaternion rosRot = unityRot.Unity2Ros();
+
+            message.@object.primitive_poses[0] = new RosPose
             {
-                position = new Point
-                {
-                    x = unityPos.z,
-                    y = -unityPos.x,
-                    z = unityPos.y
-                },
-                orientation = new RosSharp.RosBridgeClient.MessageTypes.Geometry.Quaternion
-                {
-                    x = -unityRot.z,
-                    y = unityRot.x,
-                    z = -unityRot.y,
-                    w = unityRot.w
-                }
+                position = new RosPoint(rosPos.x, rosPos.y, rosPos.z),
+                orientation = new RosQuaternion(rosRot.x, rosRot.y, rosRot.z, rosRot.w)
             };
         }
 

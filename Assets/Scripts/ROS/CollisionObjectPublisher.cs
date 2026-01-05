@@ -4,6 +4,8 @@ using RosSharp.RosBridgeClient.MessageTypes.Geometry;
 using RosSharp.RosBridgeClient.MessageTypes.Shape;
 using RosSharp.RosBridgeClient.MessageTypes.Std;
 
+using RosPose = RosSharp.RosBridgeClient.MessageTypes.Geometry.Pose;
+
 namespace RosSharp.RosBridgeClient
 {
     public class CollisionObjectPublisher : UnityPublisher<CollisionObject>
@@ -58,7 +60,7 @@ namespace RosSharp.RosBridgeClient
 
             // Initialize Lists
             message.primitives = new SolidPrimitive[1];
-            message.primitive_poses = new RosSharp.RosBridgeClient.MessageTypes.Geometry.Pose[1];
+            message.primitive_poses = new RosPose[1];
         }
 
         public void PublishCollisionObject(sbyte operation)
@@ -72,7 +74,6 @@ namespace RosSharp.RosBridgeClient
             // Also fixes issues when use_sim_time is inconsistent.
             // Note: ROS2 Header uses BuiltinInterfaces.Time, not Std.Time
             message.header.stamp = new RosSharp.RosBridgeClient.MessageTypes.BuiltinInterfaces.Time(0, 0); 
-            
             message.operation = operation;
 
             if (operation == 0) // ADD or MOVE
