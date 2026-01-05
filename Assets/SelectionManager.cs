@@ -30,7 +30,7 @@ public class SelectionManager : MonoBehaviour
         }
 
         // 2. 기존 선택 항목이 있다면 깔끔하게 정리
-        if (_currentSelected != null) _currentSelected.SetSelected(false);
+        ClearSelection();
 
         // 3. 신규 선택 항목 설정 및 시각화
         _currentSelected = newItem;
