@@ -2,14 +2,16 @@ using UnityEngine;
 
 namespace RosSharp.RosBridgeClient
 {
-    [RequireComponent(typeof(TargetPosePublisher))]
+    // [RequireComponent(typeof(TargetPosePublisher))] // Removed dependency
     public class TargetPoseController : MonoBehaviour
     {
         [Header("Control Settings")]
         public float moveSpeed = 0.5f;
         public float rotateSpeed = 45f;
         public float boostMultiplier = 3f;
-        public RobotSim.ROS.Services.MovePlanClient MovePlanClient;
+        
+        [Header("Service Client")]
+        public RobotSim.ROS.MoveRobotToPoseClient MoveClient;
 
         [Header("Visuals")]
         public bool showGuides = true;
@@ -20,24 +22,24 @@ namespace RosSharp.RosBridgeClient
 
         private void Start()
         {
-            if (MovePlanClient == null) MovePlanClient = FindFirstObjectByType<RobotSim.ROS.Services.MovePlanClient>(FindObjectsInactive.Include);
+            if (MoveClient == null) MoveClient = FindFirstObjectByType<RobotSim.ROS.MoveRobotToPoseClient>(FindObjectsInactive.Include);
         }
 
         private void Update()
         {
             HandleInput();
 
-            // Execute MovePlan on Enter
+            // Execute Move Request on Enter
             if (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter))
             {
-                if (MovePlanClient != null)
+                if (MoveClient != null)
                 {
-                    Debug.Log("[TargetPoseController] Enter pressed. Triggering MoveGroup Plan...");
-                    MovePlanClient.PlanAndExecute(this.transform);
+                    Debug.Log("[TargetPoseController] Enter pressed. Sending Move Request...");
+                    MoveClient.SendMoveRequest();
                 }
                 else
                 {
-                    Debug.LogWarning("[TargetPoseController] MovePlanClient not found. Cannot execute.");
+                    Debug.LogWarning("[TargetPoseController] MoveRobotToPoseClient not found. Cannot execute.");
                 }
             }
         }
