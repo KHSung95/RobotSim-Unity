@@ -18,14 +18,15 @@ namespace RobotSim.Sensors
         public CameraMountType MountType = CameraMountType.BirdEye;
 
         [Header("Controllers")]
-        public Robot.RobotStateProvider StateProvider;
+        public RobotStateProvider StateProvider;
         
         [Header("Off-set Configuration")]
         [Tooltip("Relative Position (from Flange in HandEye, from Base in BirdEye).")]
         public Vector3 RelativePosition = new Vector3(0, 0.05f, 0.05f);
         [Tooltip("Relative Rotation (Euler)")]
         public Vector3 RelativeRotation = new Vector3(0, 0, 0);
-
+        public Camera Cam { get; private set; }
+        
         /// <summary>
         /// Calculated matrix to convert Camera Local to Robot Base coordinates.
         /// </summary>
@@ -36,6 +37,7 @@ namespace RobotSim.Sensors
         private void InitializeReferences()
         {
             if (StateProvider == null) StateProvider = FindFirstObjectByType<RobotStateProvider>(FindObjectsInactive.Include);
+            Cam = GetComponentInChildren<Camera>();
         }
         private void Start()
         {

@@ -5,6 +5,7 @@ using RobotSim.Sensors;
 using RobotSim.Robot;
 using RobotSim.Simulation;
 using RobotSim.Utils;
+using Unity.VisualScripting;
 
 namespace RobotSim.UI
 {
@@ -25,7 +26,7 @@ namespace RobotSim.UI
         private GameObject ConsolePanel;
 
         private GameObject Sidebar;
-        
+
         // Vision Reference
         private RawImage _visionFeed;
         private Toggle _rgbToggle, _depthToggle;
@@ -43,7 +44,7 @@ namespace RobotSim.UI
         // Panel Switch References (Modules)
         private GameObject _operationModule;
         private GameObject _masterModule;
-        
+
         // Modal References
         private GameObject _settingsModal;
         private TMP_InputField _settingsThreshold;
@@ -59,17 +60,17 @@ namespace RobotSim.UI
 
         private void InitializeReferences()
         {
-            if (Guidance == null) Guidance = FindObjectOfType<GuidanceManager>();
-            if (PCG == null) PCG = FindObjectOfType<PointCloudGenerator>();
-            if (CamMount == null) CamMount = FindObjectOfType<VirtualCameraMount>();
-            if (RosJogAdapter == null) RosJogAdapter = FindFirstObjectByType<RobotSim.Control.RosJogAdapter>(FindObjectsInactive.Include);
-            if (StateProvider == null) StateProvider = FindFirstObjectByType<RobotStateProvider>(FindObjectsInactive.Include);
+            Guidance ??= FindObjectOfType<GuidanceManager>();
+            PCG ??= FindObjectOfType<PointCloudGenerator>();
+            CamMount ??= FindObjectOfType<VirtualCameraMount>();
+            RosJogAdapter ??= FindFirstObjectByType<Control.RosJogAdapter>(FindObjectsInactive.Include);
+            StateProvider ??= FindFirstObjectByType<RobotStateProvider>(FindObjectsInactive.Include);
 
             // Find UI Roots more robustly
             Transform uiRoot = FindObjectOfType<Canvas>()?.transform.Find("UIRoot");
 
             Navbar = uiRoot?.Find("Navbar")?.gameObject;
-            if(Navbar != null)
+            if (Navbar != null)
             {
                 _masterToggle = FindUISub<Toggle>(Navbar, "Button_Master");
                 _settingsToggle = FindUISub<Toggle>(Navbar, "Button_Settings");
@@ -86,19 +87,19 @@ namespace RobotSim.UI
 
                 // Find Modules by Name (created by UIBuilder as title + "_Module")
                 _operationModule = Sidebar.transform.FindDeepChild("OPERATION MODE_Module")?.gameObject;
-                if(_operationModule)
+                if (_operationModule)
                 {
                     _captureBtn = FindUISub<Button>(_operationModule, "Capture");
                     _guidanceBtn = FindUISub<Button>(_operationModule, "Guidance");
                 }
                 _masterModule = Sidebar.transform.FindDeepChild("MASTER MODE_Module")?.gameObject;
-                if(_masterModule)
+                if (_masterModule)
                 {
                     _captureMasterBtn = FindUISub<Button>(_masterModule, "CaptureMaster");
                 }
                 // Initialize state
-                if (_masterModule) _masterModule.SetActive(false);
-                if (_operationModule) _operationModule.SetActive(true);
+                _masterModule?.SetActive(false);
+                _operationModule?.SetActive(true);
 
                 _fkToggle = FindUISub<Toggle>(Sidebar, "Toggle_FK");
                 _ikToggle = FindUISub<Toggle>(Sidebar, "Toggle_IK");
@@ -107,7 +108,7 @@ namespace RobotSim.UI
                 _eStopBtn = FindUISub<Button>(Sidebar, "EStop");
 
                 _controlPanel = Sidebar.transform.FindDeepChild("ControlPanel")?.gameObject;
-                
+
                 if (_controlPanel != null)
                 {
                     _rows = _controlPanel.GetComponentsInChildren<RobotAxisRow>();
@@ -123,26 +124,18 @@ namespace RobotSim.UI
             _settingsModal = uiRoot?.Find("SettingsModal")?.gameObject;
             if (_settingsModal != null)
             {
-                Debug.Log("[UnifiedControlUI] SettingsModal found.");
                 _settingsThreshold = FindUISub<TMP_InputField>(_settingsModal, "Input_Threshold");
                 _settingsOkBtn = FindUISub<Button>(_settingsModal, "Button_Ok");
                 _handEyeToggle = FindUISub<Toggle>(_settingsModal, "Toggle_Handeye");
                 _birdEyeToggle = FindUISub<Toggle>(_settingsModal, "Toggle_Birdeye");
-                
-                if (_handEyeToggle == null) Debug.LogWarning("[UnifiedControlUI] Toggle_Handeye NOT found in SettingsModal!");
-                if (_birdEyeToggle == null) Debug.LogWarning("[UnifiedControlUI] Toggle_Birdeye NOT found in SettingsModal!");
-            }
-            else
-            {
-                Debug.LogWarning("[UnifiedControlUI] SettingsModal NOT found under UIRoot!");
             }
         }
 
         private void BindJogBtn(Button btn, int index, float dir)
         {
             if (btn == null) return;
-            var jog = btn.GetComponent<JogButton>();
-            if (jog == null) jog = btn.gameObject.AddComponent<JogButton>();
+
+            var jog = btn.GetOrAddComponent<JogButton>();
             jog.AxisIndex = index;
             jog.Direction = dir;
         }
@@ -158,55 +151,55 @@ namespace RobotSim.UI
             // [수정] Sidebar가 없어도 Navbar나 SettingsModal은 동작해야 함 (Early Return 제거)
             if (Sidebar != null)
             {
-                if (_fkToggle) _fkToggle.onValueChanged.AddListener((v) => { if (v) SetControllerMode(true); });
-                if (_ikToggle) _ikToggle.onValueChanged.AddListener((v) => { if (v) SetControllerMode(false); });
+                _fkToggle?.onValueChanged.AddListener((v) => { if (v) SetControllerMode(true); });
+                _ikToggle?.onValueChanged.AddListener((v) => { if (v) SetControllerMode(false); });
 
-                if (_captureBtn) _captureBtn.onClick.AddListener(() => Guidance?.CaptureCurrent());
-                if (_guidanceBtn) _guidanceBtn.onClick.AddListener(() => Guidance?.RunGuidance());
-                
-                if (_rgbToggle) _rgbToggle.onValueChanged.AddListener((v) => { if (v) SetVisionMode(true); });
-                if (_depthToggle) _depthToggle.onValueChanged.AddListener((v) => { if (v) SetVisionMode(false); });
+                _captureBtn?.onClick.AddListener(() => Guidance?.CaptureCurrent());
+                _guidanceBtn?.onClick.AddListener(() => Guidance?.RunGuidance());
 
-                if (_speedSlider) _speedSlider.onValueChanged.AddListener((v) => {
+                _rgbToggle?.onValueChanged.AddListener((v) => { if (v) SetVisionMode(true); });
+                _depthToggle?.onValueChanged.AddListener((v) => { if (v) SetVisionMode(false); });
+
+                _speedSlider?.onValueChanged.AddListener((v) =>
+                {
                     if (RosJogAdapter != null) RosJogAdapter.SpeedMultiplier = v;
                 });
             }
 
             if (Navbar != null)
             {
-                if (_masterToggle) _masterToggle.onValueChanged.AddListener(OnMasterModeChanged);
-                if (_settingsToggle) _settingsToggle.onValueChanged.AddListener((v) => {
-                    if (_settingsModal) _settingsModal.SetActive(v);
+                _masterToggle?.onValueChanged.AddListener(OnMasterModeChanged);
+                _settingsToggle?.onValueChanged.AddListener((v) =>
+                {
+                    _settingsModal?.SetActive(v);
                 });
             }
 
             if (_masterModule != null)
             {
-                if (_captureMasterBtn) _captureMasterBtn.onClick.AddListener(() => Guidance?.CaptureMaster());
+                _captureMasterBtn?.onClick.AddListener(() => Guidance?.CaptureMaster());
             }
 
             if (_settingsModal != null)
             {
                 var _settingsCloseBtn = _settingsModal.transform.FindDeepChild("Button_Cancel")?.GetComponent<Button>();
                 if (_settingsCloseBtn) bindSettingModalClose(ref _settingsCloseBtn);
-                
+
                 var _settingsXBtn = _settingsModal.transform.FindDeepChild("Button_X")?.GetComponent<Button>();
                 if (_settingsXBtn) bindSettingModalClose(ref _settingsXBtn);
-                
+
                 if (_settingsOkBtn) bindSettingModalClose(ref _settingsOkBtn);
 
-                if (_handEyeToggle)
-                    _handEyeToggle.onValueChanged.AddListener((v) => {if (v) SetCameraMountMode(true);});
-
-                if (_birdEyeToggle)
-                    _birdEyeToggle.onValueChanged.AddListener((v) => {if (v) SetCameraMountMode(false);});
+                 _handEyeToggle?.onValueChanged.AddListener((v) => { if (v) SetCameraMountMode(true); });
+                 _birdEyeToggle?.onValueChanged.AddListener((v) => { if (v) SetCameraMountMode(false); });
             }
         }
 
         private void bindSettingModalClose(ref Button btn)
         {
             btn.onClick.RemoveAllListeners();
-            btn.onClick.AddListener(() => {
+            btn.onClick.AddListener(() =>
+            {
                 _settingsModal.SetActive(false);
                 if (_settingsToggle) _settingsToggle.isOn = false;
             });
@@ -215,40 +208,27 @@ namespace RobotSim.UI
         private void OnMasterModeChanged(bool isMaster)
         {
             // Switch entire modules
-            if (_operationModule) _operationModule.SetActive(!isMaster);
-            if (_masterModule) _masterModule.SetActive(isMaster);
+            _operationModule?.SetActive(!isMaster);
+            _masterModule?.SetActive(isMaster);
         }
 
         public void SetVisionMode(bool isRGB)
         {
-            if (_rgbToggle) _rgbToggle.SetIsOnWithoutNotify(isRGB);
-            if (_depthToggle) _depthToggle.SetIsOnWithoutNotify(!isRGB);
+             _rgbToggle?.SetIsOnWithoutNotify(isRGB);
+             _depthToggle?.SetIsOnWithoutNotify(!isRGB);
 
             // Sync visuals manually since we used SetIsOnWithoutNotify
             _rgbToggle?.GetComponentInParent<ToggleTabManager>()?.UpdateVisuals();
             if (CamMount != null)
             {
-                var cam = CamMount.GetComponent<Camera>();
-                if (cam)
+                RenderTexture rt = new RenderTexture(512, 512, 16);
+                    rt.name = "VisionRT";
+                if (_visionFeed != null)
                 {
-                    if (cam.targetTexture == null)
-                    {
-                        RenderTexture rt = new RenderTexture(512, 512, 16);
-                        rt.name = "VisionRT";
-                        cam.targetTexture = rt;
-                    }
-
-                    if (_visionFeed != null)
-                    {
-                        _visionFeed.texture = cam.targetTexture;
-                        _visionFeed.color = Color.white;
-                    }
+                    _visionFeed.texture = rt;
                 }
-                var modeController = CamMount.GetComponent<VisionModeController>();
-                if (modeController != null)
-                {
-                    modeController.SetVisionMode(isRGB);
-                }
+                CamMount.Cam.targetTexture = rt;
+                CamMount.GetComponent<VisionModeController>()?.SetVisionMode(isRGB);
             }
         }
 
@@ -264,10 +244,10 @@ namespace RobotSim.UI
         public void SetControllerMode(bool isFK)
         {
             _isFKMode = isFK;
-            
+
             // Sync toggles without triggering events
-            if (_fkToggle) _fkToggle.SetIsOnWithoutNotify(isFK);
-            if (_ikToggle) _ikToggle.SetIsOnWithoutNotify(!isFK);
+            _fkToggle?.SetIsOnWithoutNotify(isFK);
+            _ikToggle?.SetIsOnWithoutNotify(!isFK);
 
             // Sync visuals manually since we used SetIsOnWithoutNotify
             _fkToggle?.GetComponentInParent<ToggleTabManager>()?.UpdateVisuals();
@@ -307,7 +287,7 @@ namespace RobotSim.UI
             for (int i = 0; i < _rows.Length; i++)
             {
                 var row = _rows[i];
-                if(row == null) continue;
+                if (row == null) continue;
 
                 var negJog = row.SubBtn.GetComponent<JogButton>();
                 var posJog = row.AddBtn.GetComponent<JogButton>();
@@ -332,12 +312,12 @@ namespace RobotSim.UI
                         // Align UI interactions with ROS coordinate display (X, Y, Z, Rx, Ry, Rz)
                         Vector3 lin = Vector3.zero;
                         Vector3 ang = Vector3.zero;
-                        
+
                         // Based on RobotStateProvider.cs conversion:
                         // ROS X (Forward) = Unity Z
                         // ROS Y (Left)    = Unity -X
                         // ROS Z (Up)      = Unity Y
-                        
+
                         if (i == 0) // UI X (ROS X)
                             lin.z = dir;
                         else if (i == 1) // UI Y (ROS Y)
@@ -396,16 +376,12 @@ namespace RobotSim.UI
 
         public void SetCameraMountMode(bool isHandEye)
         {
-            // [수정] Null일 경우 에러 로그 출력 (Silent Failure 방지)
-            if (CamMount == null || StateProvider == null)
-                return;
-
             // [추가] CamMount 내부 로직 호출 (Transform Parent 변경 및 갱신 포함)
-            CamMount.SetMountMode(isHandEye ? CameraMountType.HandEye : CameraMountType.BirdEye);
+            CamMount?.SetMountMode(isHandEye ? CameraMountType.HandEye : CameraMountType.BirdEye);
 
             // [추가] UI Toggle 상태 동기화
-            if (_handEyeToggle) _handEyeToggle.SetIsOnWithoutNotify(isHandEye);
-            if (_birdEyeToggle) _birdEyeToggle.SetIsOnWithoutNotify(!isHandEye);
+            _handEyeToggle?.SetIsOnWithoutNotify(isHandEye);
+            _birdEyeToggle?.SetIsOnWithoutNotify(!isHandEye);
 
             // [추가] Toggle 시각적 상태 업데이트 (ToggleTabManager가 있을 경우)
             _handEyeToggle?.GetComponentInParent<ToggleTabManager>()?.UpdateVisuals();
