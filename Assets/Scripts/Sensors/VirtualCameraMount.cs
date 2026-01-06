@@ -11,8 +11,6 @@ namespace RobotSim.Sensors
         BirdEye, // Fixed relative to Robot Base
         FreeCam  // Independent world movement
     }
-
-    [RequireComponent(typeof(Camera))]
     public class VirtualCameraMount : MonoBehaviour
     {
         [Header("Mount Configuration")]

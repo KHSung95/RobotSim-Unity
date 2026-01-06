@@ -425,6 +425,17 @@ MeshCollider:
   m_Convex: 1
   m_CookingOptions: 30
   m_Mesh: {fileID: 4300000, guid: adb09345cb7d1a06b9d5cb7f5d84c3f8, type: 2}
+--- !u!114 &40596332 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 8924445917510523976, guid: 6ef52bb1ad3696b49a318be971f8943c, type: 3}
+  m_PrefabInstance: {fileID: 201305220}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2b2b18a6720e9a3409e7d970b80b1ca4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1001 &65357329
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -9942,6 +9953,17 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 922794361}
   m_CullTransparentMesh: 1
+--- !u!114 &938128309 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 8120222619758793243, guid: 6ef52bb1ad3696b49a318be971f8943c, type: 3}
+  m_PrefabInstance: {fileID: 201305220}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 64699971605c4fd4187a34d295bccd99, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &940900215
 GameObject:
   m_ObjectHideFlags: 0
@@ -12058,7 +12080,6 @@ GameObject:
   - component: {fileID: 1174085792}
   - component: {fileID: 1174085795}
   - component: {fileID: 1174085796}
-  - component: {fileID: 1174085798}
   - component: {fileID: 1174085799}
   m_Layer: 0
   m_Name: SimulationManager
@@ -12080,8 +12101,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   Guidance: {fileID: 1174085792}
-  PCG: {fileID: 0}
-  CamMount: {fileID: 0}
+  PCG: {fileID: 40596332}
+  CamMount: {fileID: 938128309}
   StateProvider: {fileID: 2137607301}
   RosJogAdapter: {fileID: 1174085795}
 --- !u!114 &1174085792
@@ -12096,11 +12117,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 18b42861bb07bc244901c862fd2e7117, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  PCG: {fileID: 0}
+  PCG: {fileID: 40596332}
   TargetObject: {fileID: 2110924304}
   RobotFlange: {fileID: 766357191}
   CamMount: {fileID: 0}
-  Mover: {fileID: 1174085798}
+  Mover: {fileID: 0}
   RobotState: {fileID: 2137607301}
   T_ib:
     e00: 1
@@ -12154,6 +12175,10 @@ MonoBehaviour:
     e32: 0
     e33: 1
   LastDeviationDist: 0
+  Connector: {fileID: 0}
+  ServiceName: /calculate_icp
+  tcpTransform: {fileID: 0}
+  cameraTransform: {fileID: 0}
 --- !u!4 &1174085793
 Transform:
   m_ObjectHideFlags: 0
@@ -12221,24 +12246,6 @@ MonoBehaviour:
   Serializer: 1
   protocol: 0
   RosBridgeServerUrl: ws://localhost:9090
---- !u!114 &1174085798
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1174085790}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d1f62440c7931e946aa30e925692f1f6, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  Connector: {fileID: 1174085797}
-  ActionName: 
-  GroupName: ur_manipulator
-  LinkName: tool0
-  ReferenceFrame: base_link
-  PlanningTime: 5
 --- !u!114 &1174085799
 MonoBehaviour:
   m_ObjectHideFlags: 0
