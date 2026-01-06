@@ -1,5 +1,7 @@
+using Cinemachine;
 using UnityEngine;
 
+[RequireComponent(typeof(CinemachineVirtualCamera))]
 public class Freecam : MonoBehaviour
 {
     public float moveSpeed = 20f;         // Base Move Speed
@@ -9,12 +11,33 @@ public class Freecam : MonoBehaviour
     private float rotationX = 0f;
     private float rotationY = 0f;
 
+    [Header("FOV Settings")]
+    public float zoomSpeed = 10f;
+    public float minFOV = 10f;
+    public float maxFOV = 90f;
+
+    private CinemachineVirtualCamera _cam;
+    private Vector3 _initialPos;
+    private Quaternion _initialRot;
+    private float _initialFOV;
+    private float _initialRotX;
+    private float _initialRotY;
+
     void Start()
     {
+        _cam = GetComponent<CinemachineVirtualCamera>();
+        
         // Initialize camera rotation
         Vector3 rot = transform.localRotation.eulerAngles;
         rotationX = rot.y;
         rotationY = rot.x;
+
+        // Backup initial state
+        _initialPos = transform.position;
+        _initialRot = transform.rotation;
+        _initialFOV = _cam.m_Lens.FieldOfView;
+        _initialRotX = rotationX;
+        _initialRotY = rotationY;
     }
 
     void Update()
@@ -33,28 +56,32 @@ public class Freecam : MonoBehaviour
         float currentSpeed = moveSpeed;
         if (Input.GetKey(KeyCode.LeftShift)) currentSpeed *= shiftMultiplier;
 
-        // [MODIFIED] Block Camera Movement if Robot is Selected
-        if (SelectionManager.Instance != null && SelectionManager.Instance.IsSelected)
+        // 3. Movement (WASD + QE)
+        float moveH = Input.GetAxis("Horizontal"); // A, D
+        float moveV = Input.GetAxis("Vertical");   // W, S
+
+        Vector3 moveDir = (transform.forward * moveV) + (transform.right * moveH);
+
+        // Q, E for Up/Down
+        if (Input.GetKey(KeyCode.E)) moveDir += Vector3.up;
+        if (Input.GetKey(KeyCode.Q)) moveDir += Vector3.down;
+
+        transform.position += moveDir * currentSpeed * Time.deltaTime;
+
+        // 4. Adjust FOV with Scroll Wheel
+        float scroll = Input.GetAxis("Mouse ScrollWheel");
+        if (Mathf.Abs(scroll) > 0.01f)
         {
-            // Do nothing, let SelectionManager handle Gizmo movement
+            _cam.m_Lens.FieldOfView = Mathf.Clamp(_cam.m_Lens.FieldOfView - scroll * zoomSpeed, minFOV, maxFOV);
         }
-        else
-        {
-            // 3. Movement (WASD + QE)
-            float moveH = Input.GetAxis("Horizontal"); // A, D
-            float moveV = Input.GetAxis("Vertical");   // W, S
+    }
 
-            Vector3 moveDir = (transform.forward * moveV) + (transform.right * moveH);
-
-            // Q, E for Up/Down
-            if (Input.GetKey(KeyCode.E)) moveDir += Vector3.up;
-            if (Input.GetKey(KeyCode.Q)) moveDir += Vector3.down;
-
-            transform.position += moveDir * currentSpeed * Time.deltaTime;
-        }
-
-        // 4. Adjust Speed with Scroll Wheel
-        moveSpeed += Input.GetAxis("Mouse ScrollWheel") * 10f;
-        moveSpeed = Mathf.Max(moveSpeed, 0.1f);
+    public void ResetView()
+    {
+        transform.position = _initialPos;
+        transform.rotation = _initialRot;
+        _cam.m_Lens.FieldOfView = _initialFOV;
+        rotationX = _initialRotX;
+        rotationY = _initialRotY;
     }
 }

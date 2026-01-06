@@ -139,49 +139,20 @@ public class SelectionManager : MonoBehaviour
             HandleType nextType = (_activeHandle.type == HandleType.Position) ? HandleType.Rotation : HandleType.Position;
             _activeHandle.ChangeHandleType(nextType);
         }
-
-        // Gizmo Control Logic
-        if (_activeHandle != null && !_isDragging)
+        // ROS Service Call
+        if (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter))
         {
-             // Gizmo Movement (WASD + QE) in World Space
-             float speed = 1.0f; // Default Gizmo Speed
-             if (Input.GetKey(KeyCode.LeftShift)) speed *= 3f;
+            if (IsRobotSelected && _robotClient != null)
+            {
+                Debug.Log("[SelectionManager] Enter pressed. Sending Robot Move Request...");
+                _robotClient.SendMoveRequest();
+            }
+        }
              
-             Vector3 moveDir = Vector3.zero;
-             if (Input.GetKey(KeyCode.W)) moveDir += Vector3.forward;
-             if (Input.GetKey(KeyCode.S)) moveDir += Vector3.back;
-             if (Input.GetKey(KeyCode.A)) moveDir += Vector3.left;
-             if (Input.GetKey(KeyCode.D)) moveDir += Vector3.right;
-             if (Input.GetKey(KeyCode.Q)) moveDir += Vector3.up;
-             if (Input.GetKey(KeyCode.E)) moveDir += Vector3.down;
-
-             if (moveDir != Vector3.zero)
-             {
-                 _activeHandle.target.Translate(moveDir * speed * Time.deltaTime, Space.World);
-                 
-                 // [Sync] Update actual object to match handle's target
-                 if (_currentSelectedTransform != null)
-                 {
-                     _currentSelectedTransform.position = _activeHandle.target.position;
-                     _currentSelectedTransform.rotation = _activeHandle.target.rotation;
-                 }
-             }
-
-             // ROS Service Call
-             if (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter))
-             {
-                 if (_robotClient != null)
-                 {
-                     Debug.Log("[SelectionManager] Enter pressed. Sending Robot Move Request...");
-                     _robotClient.SendMoveRequest();
-                 }
-             }
-             
-             // Reset Logic (R)
-             if (Input.GetKeyDown(KeyCode.R))
-             {
-                  // Optional: Reset logic if needed
-             }
+        // Reset Logic (R)
+        if (Input.GetKeyDown(KeyCode.R))
+        {
+            ProcessResetPerObject();
         }
 
         // 외부 입력 동기화 (Robot이 아닐 때만 Sync)
@@ -270,6 +241,26 @@ public class SelectionManager : MonoBehaviour
                 // 아무것도 안 맞았거나 일반 물체 클릭 시 해제
                 ClearSelection();
             }
+        }
+    }
+
+    private void ProcessResetPerObject()
+    {
+        if (!IsSelected)
+        {
+            FindFirstObjectByType<Freecam>()?.ResetView();
+        }
+        else if (IsRobotSelected)
+        {
+            FindFirstObjectByType<RobotSim.Control.RobotResetHandler>()?.TriggerReset();
+        }
+        else if (_currentSelected.CompareTag("Target"))
+        {
+            _currentSelected.ResetToInitial();
+        }
+        else
+        {
+            _currentSelected.GetComponentInParent<RobotSim.Sensors.VirtualCameraMount>()?.ResetPosition();
         }
     }
 }

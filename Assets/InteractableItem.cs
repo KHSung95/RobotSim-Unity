@@ -10,8 +10,14 @@ public class InteractableItem : MonoBehaviour
     private bool _isSelected;
     private bool _isHovered;
 
+    private Vector3 _initialPosition;
+    private Quaternion _initialRotation;
+
     void Start()
     {
+        _initialPosition = transform.position;
+        _initialRotation = transform.rotation;
+
         _outline = gameObject.GetComponent<Outline>();
         if (_outline == null)
         {
@@ -20,6 +26,12 @@ public class InteractableItem : MonoBehaviour
         
         _outline.OutlineMode = Outline.Mode.OutlineAll;
         _outline.enabled = false;
+    }
+
+    public void ResetToInitial()
+    {
+        transform.position = _initialPosition;
+        transform.rotation = _initialRotation;
     }
 
     public void SetSelected(bool isSelected)
