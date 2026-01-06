@@ -195,25 +195,13 @@ namespace RobotSim.UI
 
             _rgbToggle?.GetComponentInParent<ToggleTabManager>()?.UpdateVisuals();
             
-            if (CamMount != null)
-            {
-                var cam = CamMount.GetComponent<Camera>();
-                if (cam != null)
-                {
-                    if (cam.targetTexture == null)
-                    {
-                        RenderTexture rt = new RenderTexture(512, 512, 16) { name = "VisionRT" };
-                        cam.targetTexture = rt;
-                    }
+            RenderTexture rt = new RenderTexture(512, 512, 16) { name = "VisionRT" };
 
-                    if (_visionFeed != null)
-                    {
-                        _visionFeed.texture = cam.targetTexture;
-                        _visionFeed.color = Color.white;
-                    }
-                }
-                CamMount.GetComponent<VisionModeController>()?.SetVisionMode(isRGB);
-            }
+            if (_visionFeed != null)
+                _visionFeed.texture = rt;
+
+            CamMount?.setTargetTexture(rt);
+            CamMount?.GetComponent<VisionModeController>()?.SetVisionMode(isRGB);
         }
 
         private void Start()
