@@ -2,6 +2,7 @@ using RobotSim.Control;
 using RobotSim.Robot;
 using RobotSim.Simulation;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 namespace RobotSim.Sensors
 {
@@ -68,6 +69,11 @@ namespace RobotSim.Sensors
                     if (targetParent != null)
                     {
                         transform.SetParent(targetParent, true);
+                        if(mode == CameraMountType.HandEye)
+                        {
+                            transform.localPosition = Vector3.zero;
+                            transform.localRotation = Quaternion.identity;
+                        }
                     }
                 }
             }
