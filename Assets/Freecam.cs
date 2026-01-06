@@ -1,5 +1,7 @@
+using Cinemachine;
 using UnityEngine;
 
+[RequireComponent(typeof(CinemachineVirtualCamera))]
 public class Freecam : MonoBehaviour
 {
     public float moveSpeed = 20f;         // Base Move Speed
@@ -14,7 +16,7 @@ public class Freecam : MonoBehaviour
     public float minFOV = 10f;
     public float maxFOV = 90f;
 
-    private Camera _cam;
+    private CinemachineVirtualCamera _cam;
     private Vector3 _initialPos;
     private Quaternion _initialRot;
     private float _initialFOV;
@@ -23,7 +25,7 @@ public class Freecam : MonoBehaviour
 
     void Start()
     {
-        _cam = GetComponent<Camera>();
+        _cam = GetComponent<CinemachineVirtualCamera>();
         
         // Initialize camera rotation
         Vector3 rot = transform.localRotation.eulerAngles;
@@ -33,7 +35,7 @@ public class Freecam : MonoBehaviour
         // Backup initial state
         _initialPos = transform.position;
         _initialRot = transform.rotation;
-        if (_cam != null) _initialFOV = _cam.fieldOfView;
+        _initialFOV = _cam.m_Lens.FieldOfView;
         _initialRotX = rotationX;
         _initialRotY = rotationY;
     }
@@ -67,13 +69,10 @@ public class Freecam : MonoBehaviour
         transform.position += moveDir * currentSpeed * Time.deltaTime;
 
         // 4. Adjust FOV with Scroll Wheel
-        if (_cam != null)
+        float scroll = Input.GetAxis("Mouse ScrollWheel");
+        if (Mathf.Abs(scroll) > 0.01f)
         {
-            float scroll = Input.GetAxis("Mouse ScrollWheel");
-            if (Mathf.Abs(scroll) > 0.01f)
-            {
-                _cam.fieldOfView = Mathf.Clamp(_cam.fieldOfView - scroll * zoomSpeed, minFOV, maxFOV);
-            }
+            _cam.m_Lens.FieldOfView = Mathf.Clamp(_cam.m_Lens.FieldOfView - scroll * zoomSpeed, minFOV, maxFOV);
         }
     }
 
@@ -81,7 +80,7 @@ public class Freecam : MonoBehaviour
     {
         transform.position = _initialPos;
         transform.rotation = _initialRot;
-        if (_cam != null) _cam.fieldOfView = _initialFOV;
+        _cam.m_Lens.FieldOfView = _initialFOV;
         rotationX = _initialRotX;
         rotationY = _initialRotY;
     }

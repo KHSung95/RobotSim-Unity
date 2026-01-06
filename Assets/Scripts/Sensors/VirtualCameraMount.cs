@@ -78,5 +78,18 @@ namespace RobotSim.Sensors
                 }
             }
         }
+        public void ResetPosition()
+        {
+            if (MountType == CameraMountType.HandEye)
+            {
+                transform.localPosition = Vector3.zero;
+                transform.localRotation = Quaternion.identity;
+            }
+            else if (MountType == CameraMountType.BirdEye)
+            {
+                transform.position = Vector3.zero;
+                transform.rotation = Quaternion.identity;
+            }
+        }
     }
 }

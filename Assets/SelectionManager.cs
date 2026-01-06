@@ -139,68 +139,21 @@ public class SelectionManager : MonoBehaviour
             HandleType nextType = (_activeHandle.type == HandleType.Position) ? HandleType.Rotation : HandleType.Position;
             _activeHandle.ChangeHandleType(nextType);
         }
-
-        // Gizmo Control Logic
-        if (_activeHandle != null && !_isDragging)
+        // ROS Service Call
+        if (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter))
         {
-             // ROS Service Call
-             if (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter))
-             {
-                 if (_robotClient != null)
-                 {
-                     Debug.Log("[SelectionManager] Enter pressed. Sending Robot Move Request...");
-                     _robotClient.SendMoveRequest();
-                 }
-             }
+            if (IsRobotSelected && _robotClient != null)
+            {
+                Debug.Log("[SelectionManager] Enter pressed. Sending Robot Move Request...");
+                _robotClient.SendMoveRequest();
+            }
+        }
              
-             // Reset Logic (R)
-             if (Input.GetKeyDown(KeyCode.R))
-             {
-                // Case 1: Nothing selected -> Viewpoint Reset
-                if (_currentSelected == null)
-                {
-                    var freeCam = FindFirstObjectByType<Freecam>();
-                    if (freeCam != null) freeCam.ResetView();
-                }
-                // Case 2: Robot Selected -> Robot Joint Reset
-                else if (IsRobotSelected)
-                {
-                    var resetHandler = FindFirstObjectByType<RobotSim.Control.RobotResetHandler>();
-                    if (resetHandler != null) resetHandler.TriggerReset();
-                }
-                // Case 3: Selected item has "Target" tag -> Initial Pose Reset
-                else if (_currentSelected.CompareTag("Target"))
-                {
-                    _currentSelected.ResetToInitial();
-                }
-                // Case 4: Selected item is Camera -> Mount-based Reset
-                else
-                {
-                    // Check if it's a Freecam
-                    var freeCam = _currentSelected.GetComponent<Freecam>();
-                    if (freeCam != null)
-                    {
-                        freeCam.ResetView();
-                    }
-
-                    // Check if it's a VirtualCameraMount
-                    var camMount = _currentSelected.GetComponentInParent<RobotSim.Sensors.VirtualCameraMount>();
-                    if (camMount != null)
-                    {
-                        if (camMount.MountType == RobotSim.Sensors.CameraMountType.HandEye)
-                        {
-                            camMount.transform.localPosition = Vector3.zero;
-                            camMount.transform.localRotation = Quaternion.identity;
-                        }
-                        else if (camMount.MountType == RobotSim.Sensors.CameraMountType.BirdEye)
-                        {
-                            camMount.transform.position = Vector3.zero;
-                            camMount.transform.rotation = Quaternion.identity;
-                        }
-                    }
-                }
-             }
-         }
+        // Reset Logic (R)
+        if (Input.GetKeyDown(KeyCode.R))
+        {
+            ProcessResetPerObject();
+        }
 
         // 외부 입력 동기화 (Robot이 아닐 때만 Sync)
         if (_activeHandle != null && _currentSelected != null && !_isDragging && !IsRobotSelected)
@@ -288,6 +241,26 @@ public class SelectionManager : MonoBehaviour
                 // 아무것도 안 맞았거나 일반 물체 클릭 시 해제
                 ClearSelection();
             }
+        }
+    }
+
+    private void ProcessResetPerObject()
+    {
+        if (!IsSelected)
+        {
+            FindFirstObjectByType<Freecam>()?.ResetView();
+        }
+        else if (IsRobotSelected)
+        {
+            FindFirstObjectByType<RobotSim.Control.RobotResetHandler>()?.TriggerReset();
+        }
+        else if (_currentSelected.CompareTag("Target"))
+        {
+            _currentSelected.ResetToInitial();
+        }
+        else
+        {
+            _currentSelected.GetComponentInParent<RobotSim.Sensors.VirtualCameraMount>()?.ResetPosition();
         }
     }
 }
