@@ -52,7 +52,7 @@ namespace RobotSim.Sensors
         }
 
         // 반복되는 오브젝트 생성 코드를 함수로 분리
-        private void CreateSubVisualizer(string name, out MeshFilter filter, out MeshRenderer rend)
+        private GameObject CreateSubVisualizer(string name, out MeshFilter filter, out MeshRenderer rend)
         {
             GameObject obj = new GameObject(name);
             obj.transform.SetParent(rootContainer.transform, false); // 루트의 자식으로
@@ -69,6 +69,8 @@ namespace RobotSim.Sensors
             // 재질이 없으면 쉐이더 찾아서 생성
             var shader = Shader.Find("Custom/PointCloudShader");
             if (shader) rend.material = new Material(shader);
+
+            return obj;
         }
 
         public void SetRobotBase(Transform robotBase)
@@ -191,6 +193,11 @@ namespace RobotSim.Sensors
             targetMesh.colors = colors;
             targetMesh.SetIndices(indices, MeshTopology.Points, 0);
             targetMesh.RecalculateBounds();
+        }
+
+        public void ToggleMasterDataRender(bool visible)
+        {
+           masterRenderer.enabled = visible;
         }
     }
 }

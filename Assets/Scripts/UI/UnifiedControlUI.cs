@@ -28,7 +28,7 @@ namespace RobotSim.UI
         
         // Vision Reference
         private RawImage _visionFeed;
-        private Toggle _rgbToggle, _depthToggle;
+        private Toggle _masterViewToggle;
 
         // Operation References
         private Button _captureMasterBtn;
@@ -76,8 +76,7 @@ namespace RobotSim.UI
             if (Sidebar != null)
             {
                 _visionFeed = FindUISub<RawImage>(Sidebar, "Feed");
-                _rgbToggle = FindUISub<Toggle>(Sidebar, "Toggle_RGB");
-                _depthToggle = FindUISub<Toggle>(Sidebar, "Toggle_Depth");
+                _masterViewToggle = FindUISub<Toggle>(Sidebar, "Toggle_Master Data");
 
                 // Find Modules by Name
                 _operationModule = Sidebar.transform.FindDeepChild("OPERATION MODE_Module")?.gameObject;
@@ -145,8 +144,7 @@ namespace RobotSim.UI
                 _captureBtn?.onClick.AddListener(() => Guidance?.CaptureCurrent());
                 _guidanceBtn?.onClick.AddListener(() => Guidance?.RunGuidance());
 
-                _rgbToggle?.onValueChanged.AddListener(v => { if (v) SetVisionMode(true); });
-                _depthToggle?.onValueChanged.AddListener(v => { if (v) SetVisionMode(false); });
+                _masterViewToggle?.onValueChanged.AddListener(v => { PCG?.ToggleMasterDataRender(v); });
             }
 
             if (Navbar != null)
@@ -188,27 +186,21 @@ namespace RobotSim.UI
             _masterModule?.SetActive(isMaster);
         }
 
-        public void SetVisionMode(bool isRGB)
+        private void BindVisionFeed()
         {
-            _rgbToggle?.SetIsOnWithoutNotify(isRGB);
-            _depthToggle?.SetIsOnWithoutNotify(!isRGB);
-
-            _rgbToggle?.GetComponentInParent<ToggleTabManager>()?.UpdateVisuals();
-            
             RenderTexture rt = new RenderTexture(512, 512, 16) { name = "VisionRT" };
 
             if (_visionFeed != null)
                 _visionFeed.texture = rt;
 
             CamMount?.setTargetTexture(rt);
-            CamMount?.GetComponent<VisionModeController>()?.SetVisionMode(isRGB);
         }
 
         private void Start()
         {
             InitializeReferences();
             BindEvents();
-            SetVisionMode(true);
+            BindVisionFeed();
             SetCameraMountMode(true);
         }
 

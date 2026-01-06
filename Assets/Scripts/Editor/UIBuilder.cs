@@ -105,18 +105,13 @@ namespace RobotSim.Editor
                 // Toggles Row
                 row.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleRight;
 
-                // Toggle Group for mutual exclusivity
-                var tGroup = row.AddComponent<ToggleGroup>();
-                tGroup.allowSwitchOff = false;
-
                 // Visual Manager for tabs
                 var visualManager = row.AddComponent<RobotSim.UI.ToggleTabManager>();
 
                 // Functional Toggles
-                var rgb = CreateInteractiveToggle(row.transform, "RGB", true, 24, tGroup);
-                var depth = CreateInteractiveToggle(row.transform, "Depth", false, 24, tGroup);
+                var masterData = CreateInteractiveToggle(row.transform, "Master Data", true, 24, null);
 
-                visualManager.Tabs = new List<RobotSim.UI.ToggleTabManager.TabItem> { rgb, depth };
+                visualManager.Tabs = new List<RobotSim.UI.ToggleTabManager.TabItem> { masterData };
                 visualManager.Initialize();
 
                 GameObject feed = new GameObject("Feed", typeof(RectTransform), typeof(RawImage), typeof(LayoutElement));
