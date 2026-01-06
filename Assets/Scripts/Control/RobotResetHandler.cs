@@ -20,11 +20,10 @@ namespace RobotSim.Control
         public KeyCode ResetKey = KeyCode.R;
 
         // Hardcoded Reset Position (from user request)
-        // Unity Degrees: [-90, -120, 120, -180, -90, 180]
-        // Radian conversion:
+        // Unity Degrees: [-90.2, -120.2, 144.7, -20.0, 91.0, 0.8]
         private readonly double[] ResetPositions = {
-            -1.5708, -2.0944, 2.0944, 
-            -3.13, -1.5708, 3.13 
+            -1.5743, -2.0979, 2.5255, 
+            -0.3491, 1.5882, 0.0140 
         };
 
         private void Start()
