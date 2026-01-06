@@ -143,30 +143,6 @@ public class SelectionManager : MonoBehaviour
         // Gizmo Control Logic
         if (_activeHandle != null && !_isDragging)
         {
-             // Gizmo Movement (WASD + QE) in World Space
-             float speed = 1.0f; // Default Gizmo Speed
-             if (Input.GetKey(KeyCode.LeftShift)) speed *= 3f;
-             
-             Vector3 moveDir = Vector3.zero;
-             if (Input.GetKey(KeyCode.W)) moveDir += Vector3.forward;
-             if (Input.GetKey(KeyCode.S)) moveDir += Vector3.back;
-             if (Input.GetKey(KeyCode.A)) moveDir += Vector3.left;
-             if (Input.GetKey(KeyCode.D)) moveDir += Vector3.right;
-             if (Input.GetKey(KeyCode.Q)) moveDir += Vector3.up;
-             if (Input.GetKey(KeyCode.E)) moveDir += Vector3.down;
-
-             if (moveDir != Vector3.zero)
-             {
-                 _activeHandle.target.Translate(moveDir * speed * Time.deltaTime, Space.World);
-                 
-                 // [Sync] Update actual object to match handle's target
-                 if (_currentSelectedTransform != null)
-                 {
-                     _currentSelectedTransform.position = _activeHandle.target.position;
-                     _currentSelectedTransform.rotation = _activeHandle.target.rotation;
-                 }
-             }
-
              // ROS Service Call
              if (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter))
              {
@@ -180,9 +156,51 @@ public class SelectionManager : MonoBehaviour
              // Reset Logic (R)
              if (Input.GetKeyDown(KeyCode.R))
              {
-                  // Optional: Reset logic if needed
+                // Case 1: Nothing selected -> Viewpoint Reset
+                if (_currentSelected == null)
+                {
+                    var freeCam = FindFirstObjectByType<Freecam>();
+                    if (freeCam != null) freeCam.ResetView();
+                }
+                // Case 2: Robot Selected -> Robot Joint Reset
+                else if (IsRobotSelected)
+                {
+                    var resetHandler = FindFirstObjectByType<RobotSim.Control.RobotResetHandler>();
+                    if (resetHandler != null) resetHandler.TriggerReset();
+                }
+                // Case 3: Selected item has "Target" tag -> Initial Pose Reset
+                else if (_currentSelected.CompareTag("Target"))
+                {
+                    _currentSelected.ResetToInitial();
+                }
+                // Case 4: Selected item is Camera -> Mount-based Reset
+                else
+                {
+                    // Check if it's a Freecam
+                    var freeCam = _currentSelected.GetComponent<Freecam>();
+                    if (freeCam != null)
+                    {
+                        freeCam.ResetView();
+                    }
+
+                    // Check if it's a VirtualCameraMount
+                    var camMount = _currentSelected.GetComponentInParent<RobotSim.Sensors.VirtualCameraMount>();
+                    if (camMount != null)
+                    {
+                        if (camMount.MountType == RobotSim.Sensors.CameraMountType.HandEye)
+                        {
+                            camMount.transform.localPosition = Vector3.zero;
+                            camMount.transform.localRotation = Quaternion.identity;
+                        }
+                        else if (camMount.MountType == RobotSim.Sensors.CameraMountType.BirdEye)
+                        {
+                            camMount.transform.position = Vector3.zero;
+                            camMount.transform.rotation = Quaternion.identity;
+                        }
+                    }
+                }
              }
-        }
+         }
 
         // 외부 입력 동기화 (Robot이 아닐 때만 Sync)
         if (_activeHandle != null && _currentSelected != null && !_isDragging && !IsRobotSelected)

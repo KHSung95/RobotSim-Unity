@@ -12175,10 +12175,6 @@ MonoBehaviour:
     e32: 0
     e33: 1
   LastDeviationDist: 0
-  Connector: {fileID: 0}
-  ServiceName: /calculate_icp
-  tcpTransform: {fileID: 0}
-  cameraTransform: {fileID: 0}
 --- !u!4 &1174085793
 Transform:
   m_ObjectHideFlags: 0
@@ -13368,6 +13364,10 @@ PrefabInstance:
     - target: {fileID: 6179417387650238078, guid: 4cf94b0ba292ddf4daa2a786ed87bd1b, type: 3}
       propertyPath: m_IsActive
       value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6179417387650238078, guid: 4cf94b0ba292ddf4daa2a786ed87bd1b, type: 3}
+      propertyPath: m_TagString
+      value: Target
       objectReference: {fileID: 0}
     - target: {fileID: 8981291229596451046, guid: 4cf94b0ba292ddf4daa2a786ed87bd1b, type: 3}
       propertyPath: m_Material

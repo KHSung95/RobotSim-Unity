@@ -16,9 +16,6 @@ namespace RobotSim.Control
         public TargetJointPublisher JointPublisher;
         public RobotStateProvider StateProvider;
 
-        [Header("Settings")]
-        public KeyCode ResetKey = KeyCode.R;
-
         // Hardcoded Reset Position (from user request)
         // Unity Degrees: [-90, -120, 120, -180, -90, 180]
         // Radian conversion:
@@ -34,14 +31,6 @@ namespace RobotSim.Control
             
             if (StateProvider == null) StateProvider = GetComponent<RobotStateProvider>();
             if (StateProvider == null) StateProvider = GetComponentInParent<RobotStateProvider>();
-        }
-
-        private void Update()
-        {
-            if (Input.GetKeyDown(ResetKey))
-            {
-                TriggerReset();
-            }
         }
 
         public void TriggerReset()
