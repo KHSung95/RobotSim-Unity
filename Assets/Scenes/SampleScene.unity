@@ -12105,6 +12105,13 @@ MonoBehaviour:
   CamMount: {fileID: 938128309}
   StateProvider: {fileID: 2137607301}
   RosJogAdapter: {fileID: 1174085795}
+  JogHandler:
+    StateProvider: {fileID: 0}
+    JogAdapter: {fileID: 0}
+    FkToggle: {fileID: 0}
+    IkToggle: {fileID: 0}
+    SpeedSlider: {fileID: 0}
+    AxisRows: []
 --- !u!114 &1174085792
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -12256,7 +12263,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   JointPublisher: {fileID: 2137607303}
   StateProvider: {fileID: 2137607301}
-  ResetKey: 114
 --- !u!1 &1177019809
 GameObject:
   m_ObjectHideFlags: 0
@@ -15242,6 +15248,9 @@ MonoBehaviour:
   moveSpeed: 5
   shiftMultiplier: 2
   lookSensitivity: 1.5
+  zoomSpeed: 10
+  minFOV: 10
+  maxFOV: 90
 --- !u!114 &1429436881
 MonoBehaviour:
   m_ObjectHideFlags: 0
