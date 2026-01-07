@@ -5,6 +5,7 @@ using RosSharp;
 using RosSharp.RosBridgeClient.MessageTypes.Sensor;
 using RosSharp.RosBridgeClient.MessageTypes.Custom;
 using RobotSim.ROS.Services;
+using RobotSim.Utils;
 using RosettaField = RosSharp.RosBridgeClient.MessageTypes.Sensor.PointField;
 
 namespace RobotSim.Sensors
@@ -86,13 +87,13 @@ namespace RobotSim.Sensors
         public void SetRobotBase(Transform robotBase)
         {
             RobotBaseReference = robotBase;
+            // [Modified] Separate Sync Architecture
+            // We NO LONGER parent the visualizer to the camera.
+            // Instead, we sync its world pose in LateUpdate.
             if (rootContainer != null)
             {
-                // [Modified] Attach visualizer to the Camera (Eye-in-Hand)
-                // User Requirement: "Maseter must always move with the camera."
-                rootContainer.transform.SetParent(this.transform, false);
-                rootContainer.transform.localPosition = Vector3.zero;
-                rootContainer.transform.localRotation = Quaternion.identity;
+                rootContainer.transform.SetParent(null); 
+                SyncVisualizer();
             }
         }
 
@@ -110,6 +111,21 @@ namespace RobotSim.Sensors
 
             if (scanRenderer != null && scanRenderer.material != null)
                 scanRenderer.material.SetFloat("_PointSize", PointSize);
+        }
+
+        private void LateUpdate()
+        {
+            // Sync visualizer to camera pose every frame
+            SyncVisualizer();
+        }
+
+        private void SyncVisualizer()
+        {
+            if (rootContainer != null)
+            {
+                rootContainer.transform.position = transform.position;
+                rootContainer.transform.rotation = transform.rotation;
+            }
         }
 
         // --- Capture Logic ---
