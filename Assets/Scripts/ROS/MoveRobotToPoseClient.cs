@@ -1,5 +1,6 @@
 using UnityEngine;
 using Newtonsoft.Json;
+using RobotSim.Utils;
 
 using RosSharp;
 using RosSharp.RosBridgeClient;
@@ -75,7 +76,7 @@ namespace RobotSim.ROS
             }
         }
 
-        public void SendMoveRequest()
+        public void SendMoveRequest(System.Action onComplete = null)
         {
             if (Connector == null || Connector.RosSocket == null)
             {
@@ -105,7 +106,10 @@ namespace RobotSim.ROS
 
             Connector.RosSocket.CallService<CustomServiceMessages.MoveToPoseRequest, CustomServiceMessages.MoveToPoseResponse>(
                 ServiceName,
-                OnServiceResponse,
+                (response) => {
+                    OnServiceResponse(response);
+                    if (onComplete != null) UnityMainThreadDispatcher.Instance().Enqueue(onComplete);
+                },
                 request
             );
         }

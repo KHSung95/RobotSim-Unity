@@ -141,7 +141,7 @@ namespace RobotSim.UI
             {
                 JogHandler.BindEvents();
                 
-                _captureBtn?.onClick.AddListener(() => Guidance?.CaptureCurrent());
+                _captureBtn?.onClick.AddListener(() => Guidance?.AnalyzeScene());
                 _guidanceBtn?.onClick.AddListener(() => Guidance?.RunGuidance());
 
                 _masterViewToggle?.onValueChanged.AddListener(v => { PCG?.ToggleMasterDataRender(v); });

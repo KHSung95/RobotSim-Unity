@@ -1,5 +1,11 @@
 using UnityEngine;
 using System.Collections.Generic;
+using System;
+using RosSharp;
+using RosSharp.RosBridgeClient.MessageTypes.Sensor;
+using RosSharp.RosBridgeClient.MessageTypes.Custom;
+using RobotSim.ROS.Services;
+using RosettaField = RosSharp.RosBridgeClient.MessageTypes.Sensor.PointField;
 
 namespace RobotSim.Sensors
 {
@@ -8,12 +14,16 @@ namespace RobotSim.Sensors
     {
         private Transform RobotBaseReference;
 
+        [Header("Analysis Settings")]
+        public Color MatchColor = Color.green;
+        public Color ErrorColor = Color.red;
+        public float ErrorThreshold = 0.01f;
+
         [Header("Scan Settings")]
         public int Width = 160;
         public int Height = 120;
         public float MaxDistance = 2.0f;
         public LayerMask ScanTypes = -1;
-        public float Tolerance = 0.002f;
 
         [Header("Visualization")]
         public bool ShowPoints = true;
@@ -22,10 +32,9 @@ namespace RobotSim.Sensors
         [Header("Sensor Simulation")]
         public float NoiseLevel = 0.0005f;
 
-        // Separate lists using standard Unity types
+        // Internal Data
         private List<Vector3> masterPoints = new List<Vector3>();
         private List<Color> masterColors = new List<Color>();
-        
         private List<Vector3> scanPoints = new List<Vector3>();
         private List<Color> scanColors = new List<Color>();
 
@@ -34,30 +43,32 @@ namespace RobotSim.Sensors
 
         private Camera cam;
 
-        // [구조 변경] 루트 컨테이너와 두 개의 자식 컨테이너
+        // Visualizer
         private GameObject rootContainer;
         private MeshRenderer masterRenderer;
         private MeshFilter masterFilter;
         private MeshRenderer scanRenderer;
         private MeshFilter scanFilter;
 
+        // ROS Client
+        private SceneAnalysisClient analysisClient;
+
         private void Start()
         {
             cam = GetComponent<Camera>();
+            analysisClient = GetComponent<SceneAnalysisClient>();
+            if (analysisClient == null) analysisClient = FindFirstObjectByType<SceneAnalysisClient>();
 
-            // 1. 루트 컨테이너 생성 (RobotBase를 따라다닐 녀석)
+            // Create Visualizers
             rootContainer = new GameObject("PointCloud_Visualizer");
-
-            // 2. Master와 Scan을 별도 오브젝트로 분리 생성
             CreateSubVisualizer("Master_Cloud", out masterFilter, out masterRenderer);
             CreateSubVisualizer("Scan_Cloud", out scanFilter, out scanRenderer);
         }
 
-        // 반복되는 오브젝트 생성 코드를 함수로 분리
-        private GameObject CreateSubVisualizer(string name, out MeshFilter filter, out MeshRenderer rend)
+        private void CreateSubVisualizer(string name, out MeshFilter filter, out MeshRenderer rend)
         {
             GameObject obj = new GameObject(name);
-            obj.transform.SetParent(rootContainer.transform, false); // 루트의 자식으로
+            obj.transform.SetParent(rootContainer.transform, false);
             obj.transform.localPosition = Vector3.zero;
             obj.transform.localRotation = Quaternion.identity;
 
@@ -68,39 +79,32 @@ namespace RobotSim.Sensors
             m.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
             filter.mesh = m;
 
-            // 재질이 없으면 쉐이더 찾아서 생성
             var shader = Shader.Find("Custom/PointCloudShader");
             if (shader) rend.material = new Material(shader);
-
-            return obj;
         }
 
         public void SetRobotBase(Transform robotBase)
         {
-            // RobotBaseReference = robotBase; // No longer needed for capture
+            RobotBaseReference = robotBase;
             if (rootContainer != null)
             {
-                // Attach visualizer to the Camera (this.transform) so points move with it
+                // [Modified] Attach visualizer to the Camera (Eye-in-Hand)
+                // User Requirement: "Maseter must always move with the camera."
                 rootContainer.transform.SetParent(this.transform, false);
                 rootContainer.transform.localPosition = Vector3.zero;
                 rootContainer.transform.localRotation = Quaternion.identity;
             }
         }
 
-        // [New] Only clear Scan visualization (Transient)
         public void ClearScan()
         {
             scanPoints.Clear();
             scanColors.Clear();
-            if (scanFilter != null && scanFilter.mesh != null)
-            {
-                scanFilter.mesh.Clear();
-            }
+            if (scanFilter != null && scanFilter.mesh != null) scanFilter.mesh.Clear();
         }
 
         private void Update()
         {
-            // 점 크기 실시간 반영 (두 재질 모두)
             if (masterRenderer != null && masterRenderer.material != null)
                 masterRenderer.material.SetFloat("_PointSize", PointSize);
 
@@ -108,24 +112,44 @@ namespace RobotSim.Sensors
                 scanRenderer.material.SetFloat("_PointSize", PointSize);
         }
 
+        // --- Capture Logic ---
+
         public void CaptureMaster()
         {
-            // Master는 비교 대상이 없으므로 Heatmap 없이 흰색(1,1,1,1)으로 저장
-            // Capture in Camera Local Space
-            CaptureInternal(this.transform.worldToLocalMatrix, Color.white, true, ref masterPoints, ref masterColors);
-
-            // Master 메쉬만 업데이트
+            // Capture in Camera Local Space (Eye-in-Hand)
+            Matrix4x4 matrix = this.transform.worldToLocalMatrix;
+            
+            CaptureInternal(matrix, Color.white, true, ref masterPoints, ref masterColors);
             UpdateMesh(masterFilter.mesh, masterPoints, masterColors);
+            Debug.Log($"[PointCloudGenerator] Captured Master: {masterPoints.Count} points. Frame: CameraLocal");
+
+            // [NEW] Send SET_MASTER to ROS
+            if (analysisClient != null)
+            {
+                if (masterPoints.Count > 0)
+                {
+                    PointCloud2 cloudMsg = ConvertToPointCloud2(masterPoints);
+                    analysisClient.SendAnalysisRequest("SET_MASTER", 0, cloudMsg, (res) =>
+                    {
+                        if (res.success) Debug.Log("[PointCloudGenerator] Master Cloud Set on ROS.");
+                        else Debug.LogError("[PointCloudGenerator] Failed to set Master Cloud on ROS.");
+                    });
+                }
+            }
+            else
+            {
+                Debug.LogWarning("[PointCloudGenerator] SceneAnalysisClient missing. Master not sent to ROS.");
+            }
         }
 
         public void CaptureScan()
         {
-            // Scan은 Heatmap 컬러(초록/빨강)가 버텍스에 구워짐
             // Capture in Camera Local Space
-            CaptureInternal(this.transform.worldToLocalMatrix, Color.white, false, ref scanPoints, ref scanColors);
+            Matrix4x4 matrix = this.transform.worldToLocalMatrix;
 
-            // Scan 메쉬만 업데이트
+            CaptureInternal(matrix, Color.white, false, ref scanPoints, ref scanColors);
             UpdateMesh(scanFilter.mesh, scanPoints, scanColors);
+            Debug.Log($"[PointCloudGenerator] Captured Scan: {scanPoints.Count} points. Frame: CameraLocal");
         }
 
         private void CaptureInternal(Matrix4x4 T_ref_world, Color defaultColor, bool isMaster, ref List<Vector3> points, ref List<Color> colors)
@@ -143,41 +167,160 @@ namespace RobotSim.Sensors
                     if (Physics.Raycast(ray, out RaycastHit hit, MaxDistance, ScanTypes))
                     {
                         Vector3 hitPoint = hit.point;
-                        if (NoiseLevel > 0) hitPoint += Random.insideUnitSphere * NoiseLevel;
+                        if (NoiseLevel > 0) hitPoint += UnityEngine.Random.insideUnitSphere * NoiseLevel;
 
                         Vector3 pos = T_ref_world.MultiplyPoint3x4(hitPoint);
                         points.Add(pos);
-
-                        if (isMaster)
-                        {
-                            colors.Add(Color.white);
-                        }
-                        else
-                        {
-                            colors.Add(CalculateHeatmapColor(pos));
-                        }
+                        colors.Add(defaultColor); // Default color until analyzed
                     }
                 }
             }
         }
 
-        private Color CalculateHeatmapColor(Vector3 pos)
-        {
-            if (masterPoints.Count == 0) return Color.green; // 비교 대상 없으면 그냥 초록
+        // --- Analysis Workflow ---
 
-            float minSqDist = float.MaxValue;
-            // 성능 최적화: 점이 많으면 여기서 병목 발생. 추후 KDTree 도입 필요.
-            // 지금은 단순히 건너뛰기(Stride) 등으로 임시 최적화 가능
-            int stride = 1; // 1이면 전수조사. 
-            for (int i = 0; i < masterPoints.Count; i += stride)
+        [ContextMenu("Analyze Scene")]
+        public void AnalyzeScene()
+        {
+            if (analysisClient == null)
             {
-                float d = (masterPoints[i] - pos).sqrMagnitude;
-                if (d < minSqDist) minSqDist = d;
+                Debug.LogError("[PointCloudGenerator] No SceneAnalysisClient found. Cannot analyze.");
+                return;
             }
-            return (minSqDist < Tolerance * Tolerance) ? Color.green : Color.red;
+
+            // 1. Capture current scan first (if needed, or use existing)
+            CaptureScan();
+
+            if (scanPoints.Count == 0)
+            {
+                Debug.LogWarning("[PointCloudGenerator] Scan is empty. Nothing to analyze.");
+                return;
+            }
+
+            // 2. Convert to ROS Message
+            PointCloud2 cloudMsg = ConvertToPointCloud2(scanPoints);
+
+            // 3. Send Request
+            analysisClient.SendAnalysisRequest("COMPARE", ErrorThreshold, cloudMsg, OnAnalysisResponse);
         }
 
-        // [함수 분리] 특정 메쉬에 데이터를 그리는 로직
+        private void OnAnalysisResponse(ProcessSceneResponse response)
+        {
+            if (response == null) return;
+
+            Debug.Log($"[PointCloudGenerator] Analysis Result: Success={response.success}, Match={response.match_score * 100:F1}%");
+
+            if (response.result_cloud != null && response.result_cloud.data.Length > 0)
+            {
+                ColorizeFromROS(response.result_cloud);
+            }
+            else
+            {
+                Debug.LogWarning("[PointCloudGenerator] Received empty result cloud.");
+            }
+        }
+
+        private void ColorizeFromROS(PointCloud2 resultCloud)
+        {
+            // Parse Intensity and update colors
+            uint pointCount = resultCloud.width * resultCloud.height;
+            int pointStep = (int)resultCloud.point_step;
+            byte[] data = resultCloud.data;
+
+            // Find offsets
+            int xOff = -1, yOff = -1, zOff = -1, iOff = -1;
+            foreach (var field in resultCloud.fields)
+            {
+                if (field.name == "x") xOff = (int)field.offset;
+                if (field.name == "y") yOff = (int)field.offset;
+                if (field.name == "z") zOff = (int)field.offset;
+                if (field.name == "intensity") iOff = (int)field.offset;
+            }
+
+            if (iOff == -1)
+            {
+                Debug.LogError("[PointCloudGenerator] No 'intensity' field in result cloud.");
+                return;
+            }
+
+            scanPoints.Clear();
+            scanColors.Clear();
+
+            scanPoints.Clear();
+            scanColors.Clear();
+
+            int matchCount = 0;
+            for (int i = 0; i < pointCount; i++)
+            {
+                int baseIdx = i * pointStep;
+
+                // Read Position (ROS FLU)
+                float x = BitConverter.ToSingle(data, baseIdx + xOff);
+                float y = BitConverter.ToSingle(data, baseIdx + yOff);
+                float z = BitConverter.ToSingle(data, baseIdx + zOff);
+
+                // Convert ROS -> Unity
+                Vector3 pMsg = new Vector3(x, y, z);
+                scanPoints.Add(pMsg.Ros2Unity());
+
+                // Read Intensity
+                float intensity = BitConverter.ToSingle(data, baseIdx + iOff);
+
+                // Apply Color
+                bool isMatch = intensity >= 0.9f;
+                if (isMatch) matchCount++;
+                Color c = isMatch ? MatchColor : ErrorColor;
+                scanColors.Add(c);
+                
+                // Debug first few points
+                if (i < 5) Debug.Log($"[PCG Debug] Point {i}: Int={intensity:F2}, Color={c}");
+            }
+            
+            Debug.Log($"[PointCloudGenerator] Colorized {scanPoints.Count} points. Matches: {matchCount}");
+
+            UpdateMesh(scanFilter.mesh, scanPoints, scanColors);
+        }
+
+        // --- Helper: Conversion ---
+
+        private PointCloud2 ConvertToPointCloud2(List<Vector3> points)
+        {
+            PointCloud2 msg = new PointCloud2();
+            msg.header = new RosSharp.RosBridgeClient.MessageTypes.Std.Header { frame_id = "camera_link" };
+            msg.height = 1;
+            msg.width = (uint)points.Count;
+            msg.is_bigendian = false;
+            msg.point_step = 16; // x(4) + y(4) + z(4) + i(4)
+            msg.row_step = msg.point_step * msg.width;
+            msg.is_dense = true;
+
+            msg.fields = new RosettaField[] // using RosettaField = RosSharp.RosBridgeClient.MessageTypes.Sensor.PointField;
+            {
+                new PointField { name = "x", offset = 0, datatype = PointField.FLOAT32, count = 1 },
+                new PointField { name = "y", offset = 4, datatype = PointField.FLOAT32, count = 1 },
+                new PointField { name = "z", offset = 8, datatype = PointField.FLOAT32, count = 1 },
+                new PointField { name = "intensity", offset = 12, datatype = PointField.FLOAT32, count = 1 }
+            };
+
+            byte[] data = new byte[msg.width * msg.point_step];
+
+            for (int i = 0; i < points.Count; i++)
+            {
+                int offset = i * (int)msg.point_step;
+                
+                // Convert Unity -> ROS (FLU)
+                Vector3 pRos = points[i].Unity2Ros();
+
+                BitConverter.GetBytes(pRos.x).CopyTo(data, offset + 0);
+                BitConverter.GetBytes(pRos.y).CopyTo(data, offset + 4);
+                BitConverter.GetBytes(pRos.z).CopyTo(data, offset + 8);
+                BitConverter.GetBytes(0.0f).CopyTo(data, offset + 12); // Initial intensity 0
+            }
+
+            msg.data = data;
+            return msg;
+        }
+
         private void UpdateMesh(Mesh targetMesh, List<Vector3> points, List<Color> colors)
         {
             if (!ShowPoints || points == null || points.Count == 0)
@@ -186,25 +329,21 @@ namespace RobotSim.Sensors
                 return;
             }
 
-            Vector3[] vertices = points.ToArray();
-            Color[] meshColors = colors.ToArray();
-            int[] indices = new int[points.Count];
-
-            for (int i = 0; i < points.Count; i++)
-            {
-                indices[i] = i;
-            }
-
             targetMesh.Clear();
-            targetMesh.vertices = vertices;
-            targetMesh.colors = meshColors;
+            targetMesh.vertices = points.ToArray();
+            targetMesh.colors = colors.ToArray();
+
+            int[] indices = new int[points.Count];
+            for (int i = 0; i < points.Count; i++) indices[i] = i;
+
             targetMesh.SetIndices(indices, MeshTopology.Points, 0);
             targetMesh.RecalculateBounds();
         }
 
         public void ToggleMasterDataRender(bool visible)
         {
-           masterRenderer.enabled = visible;
+            masterRenderer.enabled = visible;
         }
+
     }
 }

@@ -101,7 +101,6 @@ namespace RobotSim.Robot
                         AddJoint(j);
                     }
                 }
-                Debug.Log($"[RobotStateProvider] Auto-discovered {names.Count} joints.");
             }
 
             _jointNames = names.ToArray();
