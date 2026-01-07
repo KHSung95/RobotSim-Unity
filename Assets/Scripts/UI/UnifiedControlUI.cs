@@ -155,7 +155,12 @@ namespace RobotSim.UI
 
             if (_masterModule != null)
             {
-                _captureMasterBtn?.onClick.AddListener(() => Guidance?.CaptureMaster());
+                _captureMasterBtn?.onClick.AddListener(() =>
+                {
+                    Guidance?.CaptureMaster();
+                    _masterToggle?.SetIsOnWithoutNotify(false);
+                    OnMasterModeChanged(false);
+                });
             }
 
             if (_settingsModal != null)
@@ -185,7 +190,7 @@ namespace RobotSim.UI
             _operationModule?.SetActive(!isMaster);
             _masterModule?.SetActive(isMaster);
         }
-
+        
         private void BindVisionFeed()
         {
             RenderTexture rt = new RenderTexture(512, 512, 16) { name = "VisionRT" };
@@ -209,7 +214,6 @@ namespace RobotSim.UI
         public void SetCameraMountMode(bool isHandEye)
         {
             CamMount?.SetMountMode(isHandEye ? CameraMountType.HandEye : CameraMountType.BirdEye);
-
             _handEyeToggle?.SetIsOnWithoutNotify(isHandEye);
             _birdEyeToggle?.SetIsOnWithoutNotify(!isHandEye);
 

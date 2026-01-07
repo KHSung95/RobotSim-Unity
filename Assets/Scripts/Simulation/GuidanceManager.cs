@@ -90,13 +90,18 @@ namespace RobotSim.Simulation
                 return;
             }
 
-            Debug.Log($"[GuidanceManager] Preparing to call CalculateICP Service... (Master: {PCG.MasterPoints.Count}, Scan: {PCG.ScanPoints.Count})");
-
-            if (PCG.MasterPoints.Count == 0 || PCG.ScanPoints.Count == 0)
+            if (PCG.MasterPoints.Count == 0)
             {
-                Debug.LogWarning("[GuidanceManager] Cannot run guidance with empty point clouds.");
+                Debug.LogWarning("[GuidanceManager] Cannot run guidance with empty master data.");
                 return;
             }
+
+            if (PCG.ScanPoints.Count == 0)
+            {
+                CaptureCurrent();
+            }
+
+            Debug.Log($"[GuidanceManager] Preparing to call CalculateICP Service... (Master: {PCG.MasterPoints.Count}, Scan: {PCG.ScanPoints.Count})");
 
             // 1. Convert Clouds to PointCloud2
             var req = new RosSharp.RosBridgeClient.MessageTypes.CustomServices.CalculateICPRequest();
