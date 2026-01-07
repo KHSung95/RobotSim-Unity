@@ -1,11 +1,13 @@
 using UnityEngine;
 using System.Collections.Generic;
 using RobotSim.Sensors;
-using RosSharp.RosBridgeClient;
-using RosSharp;
 using RobotSim.ROS;
 using RobotSim.Robot;
 using RobotSim.Utils;
+using RobotSim.ROS.Services;
+using RosSharp.RosBridgeClient;
+using RosSharp.RosBridgeClient.MessageTypes.Custom;
+using RosSharp.RosBridgeClient.MessageTypes.Sensor;
 
 namespace RobotSim.Simulation
 {
@@ -13,36 +15,42 @@ namespace RobotSim.Simulation
     {
         [Header("References")]
         public PointCloudGenerator PCG;
-        public Transform TargetObject;
+        public PointCloudVisualizer PCV; // New Reference
+        public SceneAnalysisClient AnalysisClient; // New Reference
 
         [Header("Industrial Logic (T_ic)")]
         public MoveRobotToPoseClient Mover;
         public RobotStateProvider RobotState;
 
-        [Header("Saved Masters")]
-        public Matrix4x4 T_ib = Matrix4x4.identity;
-        public Matrix4x4 T_tb_master = Matrix4x4.identity;
-
-        [Header("Results")]
-        public Matrix4x4 LastCorrectionMatrix = Matrix4x4.identity;
-        public float LastDeviationDist = 0f;
-
         [Header("ROS Connection")]
         public RosConnector Connector;
         public string ServiceName = "/calculate_icp";
+        
+        [Header("Settings")]
+        [SerializeField] private float _errorThreshold = 0.002f;
+        public float ErrorThreshold 
+        { 
+            get => _errorThreshold; 
+            set 
+            { 
+                _errorThreshold = value; 
+                Debug.Log($"[GuidanceManager] ErrorThreshold changed to: {value}");
+            } 
+        }
 
         private Transform _tcpTransform;    // Robot Flange (End-Effector)
         private Transform _camTransform;
         private Matrix4x4 m_T_tcp_to_cam;
 
-        // ... Existing Start ...
         private void Start()
         {
-            if (PCG == null) PCG = FindObjectOfType<PointCloudGenerator>();
-            if (Mover == null) Mover = FindObjectOfType<MoveRobotToPoseClient>();
-            if (RobotState == null) RobotState = FindObjectOfType<RobotStateProvider>();
+            if (PCG == null) PCG = FindFirstObjectByType<PointCloudGenerator>();
+            if (PCV == null) PCV = FindFirstObjectByType<PointCloudVisualizer>();
+            if (AnalysisClient == null) AnalysisClient = FindFirstObjectByType<SceneAnalysisClient>();
             
-            if (Connector == null) Connector = FindObjectOfType<RosConnector>();
+            if (Mover == null) Mover = FindFirstObjectByType<MoveRobotToPoseClient>();
+            if (RobotState == null) RobotState = FindFirstObjectByType<RobotStateProvider>();
+            if (Connector == null) Connector = FindFirstObjectByType<RosConnector>();
 
             // Auto-assign transforms if missing
             if (RobotState != null) _tcpTransform = RobotState.TcpTransform;
@@ -54,31 +62,82 @@ namespace RobotSim.Simulation
                 m_T_tcp_to_cam = _tcpTransform.worldToLocalMatrix * _camTransform.localToWorldMatrix;
             }
 
-            // 시작 시 PCG에게 "우리의 기준은 로봇 베이스다"라고 알려줌
-            if (PCG != null && RobotState.RobotBase != null)
+            // Subscribe to PCG events
+            if (PCG != null)
             {
-                PCG.SetRobotBase(RobotState.RobotBase);
+                PCG.OnMasterCaptured += HandleMasterCaptured;
+                PCG.OnScanCaptured += HandleScanCaptured;
             }
+        }
+
+        private void OnDestroy()
+        {
+            if (PCG != null)
+            {
+                PCG.OnMasterCaptured -= HandleMasterCaptured;
+                PCG.OnScanCaptured -= HandleScanCaptured;
+            }
+        }
+
+        private void HandleMasterCaptured()
+        {
+            if (PCV != null) PCV.UpdateMasterMesh(PCG.MasterPoints);
+            
+            // Send Master to ROS Analysis
+            if (AnalysisClient != null && PCG.MasterPoints.Count > 0)
+            {
+                PointCloud2 cloudMsg = PCG.MasterPoints.ToPointCloud2();
+                AnalysisClient.SendAnalysisRequest("SET_MASTER", 0, cloudMsg, (res) =>
+                {
+                    if (res.success) Debug.Log("[GuidanceManager] Master Cloud Set on ROS.");
+                    else Debug.LogError("[GuidanceManager] Failed to set Master Cloud on ROS.");
+                });
+            }
+        }
+
+        private void HandleScanCaptured()
+        {
+            PCV?.UpdateScanMesh(PCG.ScanPoints);
         }
 
         [ContextMenu("Capture Master")]
         public void CaptureMaster()
         {
-            if (PCG != null)
-            {
-                PCG.CaptureMaster();
-                Debug.Log("[GuidanceManager] Master Cloud Captured (Base Frame).");
-            }
+            if (PCG != null) PCG.CaptureMaster();
         }
 
         [ContextMenu("Capture Scan (Current)")]
         public void CaptureCurrent()
         {
-            if (PCG != null)
-            {
-                PCG.CaptureScan();
-                Debug.Log("[GuidanceManager] Current Scan Captured (Base Frame).");
-            }
+            if (PCG != null) PCG.CaptureScan();
+        }
+
+        [ContextMenu("Analyze Scene")]
+        public void AnalyzeScene(bool runAnalysis = true)
+        {
+            if (PCG == null) return;
+
+            // Capture always happens
+            CaptureCurrent();
+
+            // Only proceed to ROS analysis if requested and client exists
+            if (!runAnalysis || AnalysisClient == null) return;
+
+            if (PCG.ScanPoints.Count == 0) return;
+
+            PointCloud2 cloudMsg = PCG.ScanPoints.ToPointCloud2();
+            Debug.Log($"[GuidanceManager] Sending COMPARE request with Threshold: {ErrorThreshold:F4}");
+            AnalysisClient.SendAnalysisRequest("COMPARE", ErrorThreshold, cloudMsg, (response) => {
+                if (response != null && response.result_cloud != null && response.result_cloud.data.Length > 0)
+                {
+                    Debug.Log($"[GuidanceManager] Received analysis result cloud: {response.result_cloud.width * response.result_cloud.height} points");
+                    if (PCV != null) PCV.ColorizeFromAnalysis(response.result_cloud, out _, out _);
+                }
+                else
+                {
+                    Debug.LogWarning("[GuidanceManager] Analysis response contained no cloud data.");
+                }
+            });
         }
 
         [ContextMenu("Run Guidance (Service)")]
@@ -92,23 +151,27 @@ namespace RobotSim.Simulation
 
             if (PCG.MasterPoints.Count == 0)
             {
-                Debug.LogWarning("[GuidanceManager] Cannot run guidance with empty master data.");
+                Debug.LogWarning("[GuidanceManager] Empty data. Capture first.");
                 return;
+            }
+
+            // Save state and hide scan during guidance
+            if (PCV != null)
+            {
+                _originalShowScanState = PCV.ShowScan;
+                PCV.ShowScan = false;
             }
 
             if (PCG.ScanPoints.Count == 0)
             {
-                CaptureCurrent();
+                // Just capture without analysis
+                AnalyzeScene(false);
             }
 
-            Debug.Log($"[GuidanceManager] Preparing to call CalculateICP Service... (Master: {PCG.MasterPoints.Count}, Scan: {PCG.ScanPoints.Count})");
-
-            // 1. Convert Clouds to PointCloud2
             var req = new RosSharp.RosBridgeClient.MessageTypes.CustomServices.CalculateICPRequest();
             req.master_point_cloud = PCG.MasterPoints.ToPointCloud2();
             req.current_point_cloud = PCG.ScanPoints.ToPointCloud2();
 
-            // 2. Call Service
             Connector.RosSocket.CallService<RosSharp.RosBridgeClient.MessageTypes.CustomServices.CalculateICPRequest, RosSharp.RosBridgeClient.MessageTypes.CustomServices.CalculateICPResponse>(
                 ServiceName,
                 OnGuidanceResponse,
@@ -116,130 +179,169 @@ namespace RobotSim.Simulation
             );
         }
 
-        private bool _hasPendingCorrection = false;
-        private float[] _pendingMatrixData;
-
-        // Movement Detection Logic
-        private Vector3 _lastTcpPos;
-        private Quaternion _lastTcpRot;
-        private bool _isFirstUpdate = true;
-        private const float MovementThresholdPos = 0.005f; // 5mm (Increased from 0.1mm)
-        private const float MovementThresholdRot = 0.1f;   // 0.1 degrees (Increased from 0.01)
-
         private void Update()
         {
-            // 1. Check for Robot Movement -> Clear Scan if moved
-            if (RobotState != null && PCG != null && RobotState.TcpTransform != null)
+            // Update Visualizer Pose
+            if (PCV != null && PCG != null)
             {
-                if (_isFirstUpdate)
-                {
-                    _lastTcpPos = RobotState.TcpTransform.position;
-                    _lastTcpRot = RobotState.TcpTransform.rotation;
-                    _isFirstUpdate = false;
-                }
-                else
-                {
-                    float dist = Vector3.Distance(RobotState.TcpTransform.position, _lastTcpPos);
-                    float angle = Quaternion.Angle(RobotState.TcpTransform.rotation, _lastTcpRot);
+                PCV.SetPose(PCG.transform.position, PCG.transform.rotation);
+            }
 
-                    if (dist > MovementThresholdPos || angle > MovementThresholdRot)
+            // Robot Movement Detection and Stop Logic
+            UpdateRobotStateAndStopDetection();
+
+            if (_hasPendingCorrection)
+            {
+                _hasPendingCorrection = false;
+                ApplyCorrection(_pendingMatrixData);
+                _pendingMatrixData = null;
+            }
+        }
+
+        private void UpdateRobotStateAndStopDetection()
+        {
+            if (RobotState == null || RobotState.TcpTransform == null) return;
+
+            if (_isFirstUpdate)
+            {
+                _lastTcpPos = RobotState.TcpTransform.position;
+                _lastTcpRot = RobotState.TcpTransform.rotation;
+                _isFirstUpdate = false;
+                return;
+            }
+
+            float dist = Vector3.Distance(RobotState.TcpTransform.position, _lastTcpPos);
+            float angle = Quaternion.Angle(RobotState.TcpTransform.rotation, _lastTcpRot);
+
+            // Thresholds for movement
+            bool isActuallyMoving = dist > 0.0001f || angle > 0.01f;
+
+            // Clear scan if movement is significant
+            if (dist > 0.005f || angle > 0.1f)
+            {
+                if (PCG != null) PCG.ClearScan();
+            }
+
+            // Detect Stop for Guidance Completion
+            if (_waitingForStop)
+            {
+                if (!_movementStarted)
+                {
+                    // Phase 1: Waiting for robot to begin moving
+                    if (isActuallyMoving)
                     {
-                        // Robot is moving or has moved significantly
-                        if (PCG.ScanPoints.Count > 0)
+                        _movementStarted = true;
+                        Debug.Log("[GuidanceManager] Robot movement detected.");
+                    }
+                    else
+                    {
+                        _startWaitTimer += Time.deltaTime;
+                        if (_startWaitTimer >= START_TIMEOUT)
                         {
-                            Debug.Log($"[GuidanceManager] Clearing scan due to movement (Dist: {dist:F6}, Angle: {angle:F4})");
-                            PCG.ClearScan();
+                            Debug.LogWarning("[GuidanceManager] Robot didn't move within timeout. Proceeding to analysis.");
+                            _movementStarted = true; // Force transition to stop detection
                         }
-                        
-                        // Update last pose
-                        _lastTcpPos = RobotState.TcpTransform.position;
-                        _lastTcpRot = RobotState.TcpTransform.rotation;
+                    }
+                }
+                
+                if (_movementStarted)
+                {
+                    // Phase 2: Detecting when robot finally stops
+                    if (!isActuallyMoving)
+                    {
+                        _stopTimer += Time.deltaTime;
+                        if (_stopTimer >= STOP_DELAY)
+                        {
+                            CompleteGuidance();
+                        }
+                    }
+                    else
+                    {
+                        _stopTimer = 0; // Reset if still moving
                     }
                 }
             }
 
-            // 2. Guidance Manager Update
-            if (_hasPendingCorrection)
-            {
-                _hasPendingCorrection = false;
-                if (_pendingMatrixData != null)
-                {
-                    ApplyCorrection(_pendingMatrixData);
-                    _pendingMatrixData = null;
-                }
-            }
+            _lastTcpPos = RobotState.TcpTransform.position;
+            _lastTcpRot = RobotState.TcpTransform.rotation;
         }
+
+        private Vector3 _lastTcpPos;
+        private Quaternion _lastTcpRot;
+        private bool _isFirstUpdate = true;
+        private bool _hasPendingCorrection = false;
+        private float[] _pendingMatrixData;
+
+        // Guidance state tracking
+        private bool _waitingForStop = false;
+        private bool _movementStarted = false; // New: tracking if movement actually began
+        private float _stopTimer = 0;
+        private float _startWaitTimer = 0;     // New: safety timeout for starting
+        private bool _originalShowScanState = true;
+        
+        private const float STOP_DELAY = 0.6f;      // Wait 0.6s after stop
+        private const float START_TIMEOUT = 3.0f;   // Max wait for movement to start
 
         private void OnGuidanceResponse(RosSharp.RosBridgeClient.MessageTypes.CustomServices.CalculateICPResponse response)
         {
             if (response == null || response.transformation_matrix == null || response.transformation_matrix.Length != 16)
             {
-                Debug.LogError("[GuidanceManager] Invalid service response.");
+                Debug.LogWarning("[GuidanceManager] ICP Calculation failed or returned invalid data.");
+                RestoreScanState();
                 return;
             }
-
-            Debug.Log("[GuidanceManager] Received ICP correction matrix.");
-
-            // Dispatch to Main Thread via Update loop
             _pendingMatrixData = response.transformation_matrix;
             _hasPendingCorrection = true;
         }
 
+        private void RestoreScanState()
+        {
+            if (PCV != null) PCV.ShowScan = _originalShowScanState;
+            _waitingForStop = false;
+            _movementStarted = false;
+        }
+
         private void ApplyCorrection(float[] matrixData)
         {
-            // 3-1. Parse Matrix (Row-Major from Open3D/Numpy usually)
-            // T_icp moves Source (Current) -> Target (Master)
             Matrix4x4 T_icp = ArrayToMatrix(matrixData);
-
-            // 3-2. Calculate Target Camera Pose
-            // Since points are in Camera-Local frame, T_icp is a local transformation.
-            // To make the views match, we need to move the camera by T_icp.inverse (Local).
-            // T_cam_target = T_cam_current * T_icp.inverse
-
             Matrix4x4 T_cam_current = Matrix4x4.TRS(_camTransform.position, _camTransform.rotation, Vector3.one);
             Matrix4x4 T_cam_target = T_cam_current * T_icp.inverse;
+            Matrix4x4 T_tcp_target = T_cam_target * m_T_tcp_to_cam.inverse;
 
-            // 3-3. Calculate Target TCP Pose
-            // T_tcp_world = T_cam_world * T_tcp_to_cam^-1
-            Matrix4x4 T_offset_inv = m_T_tcp_to_cam.inverse;
-            Matrix4x4 T_tcp_target = T_cam_target * T_offset_inv;
-
-            // 4. Command Robot
-            Vector3 targetPos = T_tcp_target.GetColumn(3);
-            Quaternion targetRot = T_tcp_target.rotation;
-
-            Debug.Log($"[GuidanceManager] Applying Correction: Pos={targetPos}, Rot={targetRot.eulerAngles}");
-
-            // Apply to Mover's Target Ghost
-            Mover.targetTransform.position = targetPos;
-            Mover.targetTransform.rotation = targetRot;
-
-            Debug.Log($"[GuidanceManager] Sending Move Request. (Gap: {Vector3.Distance(_tcpTransform.position, targetPos):F4}m)");
-            Mover.SendMoveRequest();
+            Mover.targetTransform.position = T_tcp_target.GetColumn(3);
+            Mover.targetTransform.rotation = T_tcp_target.rotation;
+            
+            Mover.SendMoveRequest((success) => {
+                if (success)
+                {
+                    Debug.Log("[GuidanceManager] Guidance command accepted. Waiting for robot to move then stop...");
+                    _waitingForStop = true;
+                    _movementStarted = false;
+                    _stopTimer = 0;
+                    _startWaitTimer = 0;
+                }
+                else
+                {
+                    Debug.LogWarning("[GuidanceManager] Path planning failed. Robot will not move.");
+                    RestoreScanState();
+                }
+            });
         }
 
-        public void OnGuidanceFinished()
+        private void CompleteGuidance()
         {
-            Debug.Log("[GuidanceManager] Movement finished (or service returned). Triggering Scene Analysis...");
-            AnalyzeScene();
-        }
-
-        [ContextMenu("Analyze Scene")]
-        public void AnalyzeScene()
-        {
-            if (PCG != null)
-            {
-                PCG.AnalyzeScene();
-            }
-            else
-            {
-                Debug.LogWarning("[GuidanceManager] PCG is missing. Cannot analyze.");
-            }
+            _waitingForStop = false;
+            _movementStarted = false;
+            _stopTimer = 0;
+            _startWaitTimer = 0;
+            
+            Debug.Log("[GuidanceManager] Guidance workflow complete. Performing final analysis.");
+            AnalyzeScene(true);
+            if (PCV != null) PCV.ShowScan = _originalShowScanState;
         }
 
         private Matrix4x4 ArrayToMatrix(float[] arr)
         {
-            // Assume Row-Major (standard C/Python/ROS)
             Matrix4x4 m = new Matrix4x4();
             m.SetRow(0, new Vector4(arr[0], arr[1], arr[2], arr[3]));
             m.SetRow(1, new Vector4(arr[4], arr[5], arr[6], arr[7]));

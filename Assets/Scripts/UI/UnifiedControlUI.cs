@@ -28,7 +28,7 @@ namespace RobotSim.UI
         
         // Vision Reference
         private RawImage _visionFeed;
-        private Toggle _masterViewToggle;
+        private Toggle _pointViewToggle;
 
         // Operation References
         private Button _captureMasterBtn;
@@ -76,7 +76,7 @@ namespace RobotSim.UI
             if (Sidebar != null)
             {
                 _visionFeed = FindUISub<RawImage>(Sidebar, "Feed");
-                _masterViewToggle = FindUISub<Toggle>(Sidebar, "Toggle_Master Data");
+                _pointViewToggle = FindUISub<Toggle>(Sidebar, "Toggle_Pointcloud");
 
                 // Find Modules by Name
                 _operationModule = Sidebar.transform.FindDeepChild("OPERATION MODE_Module")?.gameObject;
@@ -144,13 +144,29 @@ namespace RobotSim.UI
                 _captureBtn?.onClick.AddListener(() => Guidance?.AnalyzeScene());
                 _guidanceBtn?.onClick.AddListener(() => Guidance?.RunGuidance());
 
-                _masterViewToggle?.onValueChanged.AddListener(v => { PCG?.ToggleMasterDataRender(v); });
+                _pointViewToggle?.onValueChanged.AddListener(v => {
+                    if (Guidance != null && Guidance.PCV != null)
+                    {
+                        Guidance.PCV.ShowMaster = v;
+                        Guidance.PCV.ShowScan = v;
+                    }
+                });
             }
 
             if (Navbar != null)
             {
                 _masterToggle?.onValueChanged.AddListener(OnMasterModeChanged);
-                _settingsToggle?.onValueChanged.AddListener(v => _settingsModal?.SetActive(v));
+                _settingsToggle?.onValueChanged.AddListener(v => {
+                    if (_settingsModal != null)
+                    {
+                        _settingsModal.SetActive(v);
+                        if (v && Guidance != null && _settingsThreshold != null)
+                        {
+                            // Pre-fill with current value (converting back from meters to mm)
+                            _settingsThreshold.text = (Guidance.ErrorThreshold * 1000f).ToString("F1");
+                        }
+                    }
+                });
             }
 
             if (_masterModule != null)
@@ -171,6 +187,28 @@ namespace RobotSim.UI
 
                 _handEyeToggle?.onValueChanged.AddListener(v => { if (v) SetCameraMountMode(true); });
                 _birdEyeToggle?.onValueChanged.AddListener(v => { if (v) SetCameraMountMode(false); });
+
+                _settingsThreshold?.onEndEdit.AddListener(v => UpdateThreshold(v));
+                _settingsOkBtn?.onClick.AddListener(() => UpdateThreshold(_settingsThreshold.text));
+            }
+        }
+
+        private void UpdateThreshold(string val)
+        {
+            if (string.IsNullOrEmpty(val)) return;
+
+            if (float.TryParse(val, out float res))
+            {
+                if (Guidance != null)
+                {
+                    float thresholdInMeters = res / 1000f;
+                    Guidance.ErrorThreshold = thresholdInMeters;
+                    Debug.Log($"[UnifiedControlUI] Threshold updated: UI Input={res}mm -> Meter={thresholdInMeters}m");
+                }
+            }
+            else
+            {
+                Debug.LogWarning($"[UnifiedControlUI] Failed to parse threshold value: '{val}'");
             }
         }
 

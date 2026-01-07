@@ -76,7 +76,7 @@ namespace RobotSim.ROS
             }
         }
 
-        public void SendMoveRequest(System.Action onComplete = null)
+        public void SendMoveRequest(System.Action<bool> onComplete = null)
         {
             if (Connector == null || Connector.RosSocket == null)
             {
@@ -107,8 +107,9 @@ namespace RobotSim.ROS
             Connector.RosSocket.CallService<CustomServiceMessages.MoveToPoseRequest, CustomServiceMessages.MoveToPoseResponse>(
                 ServiceName,
                 (response) => {
+                    bool success = response != null && response.success;
                     OnServiceResponse(response);
-                    if (onComplete != null) UnityMainThreadDispatcher.Instance().Enqueue(onComplete);
+                    if (onComplete != null) UnityMainThreadDispatcher.Instance().Enqueue(() => onComplete(success));
                 },
                 request
             );

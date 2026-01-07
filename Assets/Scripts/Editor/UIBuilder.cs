@@ -109,7 +109,7 @@ namespace RobotSim.Editor
                 var visualManager = row.AddComponent<RobotSim.UI.ToggleTabManager>();
 
                 // Functional Toggles
-                var masterData = CreateInteractiveToggle(row.transform, "Master Data", true, 24, null);
+                var masterData = CreateInteractiveToggle(row.transform, "Pointcloud", true, 24, null);
 
                 visualManager.Tabs = new List<RobotSim.UI.ToggleTabManager.TabItem> { masterData };
                 visualManager.Initialize();
