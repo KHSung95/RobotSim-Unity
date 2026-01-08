@@ -32,7 +32,7 @@ namespace RobotSim.ROS
                 twist = new Twist
                 {
                     linear = new RosVector3(rosLin.x, rosLin.y, rosLin.z),
-                    angular = new RosVector3(rosAng.x, rosLin.y, rosLin.z)
+                    angular = new RosVector3(rosAng.x, rosAng.y, rosAng.z)
                 }
             };
             
