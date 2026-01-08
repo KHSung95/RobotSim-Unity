@@ -12,11 +12,10 @@ namespace RobotSim.UI
     {
         [Header("References")]
         public GuidanceManager Guidance;
-        public PointCloudGenerator PCG;
         public VirtualCameraMount CamMount;
 
         [Header("Controllers")]
-        public Robot.RobotStateProvider StateProvider;
+        public RobotStateProvider StateProvider;
         public Control.RosJogAdapter RosJogAdapter;
         
         private RobotJogUIHandler JogHandler = new();
@@ -56,9 +55,8 @@ namespace RobotSim.UI
         private void InitializeReferences()
         {
             Guidance ??= FindObjectOfType<GuidanceManager>();
-            PCG ??= FindObjectOfType<PointCloudGenerator>();
             CamMount ??= FindObjectOfType<VirtualCameraMount>();
-            RosJogAdapter ??= FindFirstObjectByType<RobotSim.Control.RosJogAdapter>(FindObjectsInactive.Include);
+            RosJogAdapter ??= FindFirstObjectByType<Control.RosJogAdapter>(FindObjectsInactive.Include);
             StateProvider ??= FindFirstObjectByType<RobotStateProvider>(FindObjectsInactive.Include);
 
             // Find UI Roots more robustly

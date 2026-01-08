@@ -14,9 +14,9 @@ namespace RobotSim.Simulation
     public class GuidanceManager : MonoBehaviour
     {
         [Header("References")]
-        public PointCloudGenerator PCG;
-        public PointCloudVisualizer PCV; // New Reference
-        public SceneAnalysisClient AnalysisClient; // New Reference
+        public VirtualCameraMount CamMount; // Replaces PCG
+        public PointCloudVisualizer PCV; 
+        public SceneAnalysisClient AnalysisClient;
 
         [Header("Industrial Logic (T_ic)")]
         public MoveRobotToPoseClient Mover;
@@ -44,7 +44,7 @@ namespace RobotSim.Simulation
 
         private void Start()
         {
-            if (PCG == null) PCG = FindFirstObjectByType<PointCloudGenerator>();
+            if (CamMount == null) CamMount = FindFirstObjectByType<VirtualCameraMount>();
             if (PCV == null) PCV = FindFirstObjectByType<PointCloudVisualizer>();
             if (AnalysisClient == null) AnalysisClient = FindFirstObjectByType<SceneAnalysisClient>();
             
@@ -54,39 +54,39 @@ namespace RobotSim.Simulation
 
             // Auto-assign transforms if missing
             if (RobotState != null) _tcpTransform = RobotState.TcpTransform;
-            if (PCG != null) _camTransform = PCG.transform;
+            if (CamMount != null) _camTransform = CamMount.SensorTransform;
 
             // Calculate Hand-Eye Offset (Static assumption)
-            if (_tcpTransform != null && PCG != null)
+            if (_tcpTransform != null && CamMount != null)
             {
                 m_T_tcp_to_cam = _tcpTransform.worldToLocalMatrix * _camTransform.localToWorldMatrix;
             }
 
-            // Subscribe to PCG events
-            if (PCG != null)
+            // Subscribe to CamMount events
+            if (CamMount != null)
             {
-                PCG.OnMasterCaptured += HandleMasterCaptured;
-                PCG.OnScanCaptured += HandleScanCaptured;
+                CamMount.OnMasterCaptured += HandleMasterCaptured;
+                CamMount.OnScanCaptured += HandleScanCaptured;
             }
         }
 
         private void OnDestroy()
         {
-            if (PCG != null)
+            if (CamMount != null)
             {
-                PCG.OnMasterCaptured -= HandleMasterCaptured;
-                PCG.OnScanCaptured -= HandleScanCaptured;
+                CamMount.OnMasterCaptured -= HandleMasterCaptured;
+                CamMount.OnScanCaptured -= HandleScanCaptured;
             }
         }
 
         private void HandleMasterCaptured()
         {
-            if (PCV != null) PCV.UpdateMasterMesh(PCG.MasterPoints);
+            if (PCV != null) PCV.UpdateMasterMesh(CamMount.MasterPoints);
             
             // Send Master to ROS Analysis
-            if (AnalysisClient != null && PCG.MasterPoints.Count > 0)
+            if (AnalysisClient != null && CamMount.MasterPoints.Count > 0)
             {
-                PointCloud2 cloudMsg = PCG.MasterPoints.ToPointCloud2();
+                PointCloud2 cloudMsg = CamMount.MasterPoints.ToPointCloud2();
                 AnalysisClient.SendAnalysisRequest("SET_MASTER", 0, cloudMsg, (res) =>
                 {
                     if (res.success) Debug.Log("[GuidanceManager] Master Cloud Set on ROS.");
@@ -97,25 +97,25 @@ namespace RobotSim.Simulation
 
         private void HandleScanCaptured()
         {
-            PCV?.UpdateScanMesh(PCG.ScanPoints);
+            PCV?.UpdateScanMesh(CamMount.ScanPoints);
         }
 
         [ContextMenu("Capture Master")]
         public void CaptureMaster()
         {
-            if (PCG != null) PCG.CaptureMaster();
+            if (CamMount != null) CamMount.CaptureMaster();
         }
 
         [ContextMenu("Capture Scan (Current)")]
         public void CaptureCurrent()
         {
-            if (PCG != null) PCG.CaptureScan();
+            if (CamMount != null) CamMount.CaptureScan();
         }
 
         [ContextMenu("Analyze Scene")]
         public void AnalyzeScene(bool runAnalysis = true)
         {
-            if (PCG == null) return;
+            if (CamMount == null) return;
 
             // Capture always happens
             CaptureCurrent();
@@ -123,9 +123,9 @@ namespace RobotSim.Simulation
             // Only proceed to ROS analysis if requested and client exists
             if (!runAnalysis || AnalysisClient == null) return;
 
-            if (PCG.ScanPoints.Count == 0) return;
+            if (CamMount.ScanPoints.Count == 0) return;
 
-            PointCloud2 cloudMsg = PCG.ScanPoints.ToPointCloud2();
+            PointCloud2 cloudMsg = CamMount.ScanPoints.ToPointCloud2();
             Debug.Log($"[GuidanceManager] Sending COMPARE request with Threshold: {ErrorThreshold:F4}");
             AnalysisClient.SendAnalysisRequest("COMPARE", ErrorThreshold, cloudMsg, (response) => {
                 if (response != null && response.result_cloud != null && response.result_cloud.data.Length > 0)
@@ -143,13 +143,13 @@ namespace RobotSim.Simulation
         [ContextMenu("Run Guidance (Service)")]
         public void RunGuidance()
         {
-            if (Connector == null || PCG == null || Mover == null) 
+            if (Connector == null || CamMount == null || Mover == null) 
             {
                 Debug.LogError("[GuidanceManager] Missing dependencies.");
                 return;
             }
 
-            if (PCG.MasterPoints.Count == 0)
+            if (CamMount.MasterPoints.Count == 0)
             {
                 Debug.LogWarning("[GuidanceManager] Empty data. Capture first.");
                 return;
@@ -162,15 +162,15 @@ namespace RobotSim.Simulation
                 PCV.ShowScan = false;
             }
 
-            if (PCG.ScanPoints.Count == 0)
+            if (CamMount.ScanPoints.Count == 0)
             {
                 // Just capture without analysis
                 AnalyzeScene(false);
             }
 
             var req = new RosSharp.RosBridgeClient.MessageTypes.CustomServices.CalculateICPRequest();
-            req.master_point_cloud = PCG.MasterPoints.ToPointCloud2();
-            req.current_point_cloud = PCG.ScanPoints.ToPointCloud2();
+            req.master_point_cloud = CamMount.MasterPoints.ToPointCloud2();
+            req.current_point_cloud = CamMount.ScanPoints.ToPointCloud2();
 
             Connector.RosSocket.CallService<RosSharp.RosBridgeClient.MessageTypes.CustomServices.CalculateICPRequest, RosSharp.RosBridgeClient.MessageTypes.CustomServices.CalculateICPResponse>(
                 ServiceName,
@@ -182,9 +182,9 @@ namespace RobotSim.Simulation
         private void Update()
         {
             // Update Visualizer Pose
-            if (PCV != null && PCG != null)
+            if (PCV != null && CamMount != null)
             {
-                PCV.SetPose(PCG.transform.position, PCG.transform.rotation);
+                PCV.SetPose(CamMount.SensorTransform.position, CamMount.SensorTransform.rotation);
             }
 
             // Robot Movement Detection and Stop Logic
@@ -219,7 +219,7 @@ namespace RobotSim.Simulation
             // Clear scan if movement is significant
             if (dist > 0.005f || angle > 0.1f)
             {
-                if (PCG != null) PCG.ClearScan();
+                CamMount?.ClearScan();
             }
 
             // Detect Stop for Guidance Completion
