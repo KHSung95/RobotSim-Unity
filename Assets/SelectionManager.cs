@@ -1,10 +1,9 @@
-using System.Collections.Generic;
-using TransformHandles;
-using Unity.VisualScripting;
-using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.EventSystems;
-using UnityEngine.UI;
+using System.Collections.Generic;
+
+using TransformHandles;
+
 public class SelectionManager : MonoBehaviour
 {
     public static SelectionManager Instance { get; private set; }

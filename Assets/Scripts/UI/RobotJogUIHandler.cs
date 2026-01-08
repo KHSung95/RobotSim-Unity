@@ -2,7 +2,6 @@ using UnityEngine;
 using UnityEngine.UI;
 using RobotSim.Robot;
 using RobotSim.Control;
-using Unity.VisualScripting;
 using UnityEngine.EventSystems;
 using System;
 using RosSharp;
@@ -83,7 +82,7 @@ namespace RobotSim.UI
         private void BindJogBtn(Button btn, int index, float dir)
         {
             if (btn == null) return;
-            var jog = btn.gameObject.GetOrAddComponent<JogButton>();
+            var jog = btn.gameObject.AddComponent<JogButton>();
             jog.AxisIndex = index;
             jog.Direction = dir;
         }

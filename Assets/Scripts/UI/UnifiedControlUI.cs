@@ -22,6 +22,7 @@ namespace RobotSim.UI
 
         private GameObject Navbar;
         private Toggle _settingsToggle, _masterToggle;
+        private Button _quitBtn;
         private GameObject ConsolePanel;
         private TextMeshProUGUI _consoleText;
         private System.Collections.Generic.Queue<string> _logQueue = new();
@@ -74,6 +75,7 @@ namespace RobotSim.UI
             {
                 _masterToggle = FindUISub<Toggle>(Navbar, "Button_Master");
                 _settingsToggle = FindUISub<Toggle>(Navbar, "Button_Settings");
+                _quitBtn = FindUISub<Button>(Navbar, "Button_Quit");
             }
 
             ConsolePanel = uiRoot?.Find("Console")?.gameObject;
@@ -123,7 +125,6 @@ namespace RobotSim.UI
             _settingsModal = uiRoot?.Find("SettingsModal")?.gameObject;
             if (_settingsModal != null)
             {
-                Debug.Log("[UnifiedControlUI] SettingsModal found.");
                 _settingsThreshold = FindUISub<TMP_InputField>(_settingsModal, "Input_Threshold");
                 _settingsOkBtn = FindUISub<Button>(_settingsModal, "Button_Ok");
                 _handEyeToggle = FindUISub<Toggle>(_settingsModal, "Toggle_Handeye");
@@ -131,10 +132,6 @@ namespace RobotSim.UI
                 
                 if (_handEyeToggle == null) Debug.LogWarning("[UnifiedControlUI] Toggle_Handeye NOT found in SettingsModal!");
                 if (_birdEyeToggle == null) Debug.LogWarning("[UnifiedControlUI] Toggle_Birdeye NOT found in SettingsModal!");
-            }
-            else
-            {
-                Debug.LogWarning("[UnifiedControlUI] SettingsModal NOT found under UIRoot!");
             }
         }
 
@@ -179,6 +176,13 @@ namespace RobotSim.UI
                             _handEyeToggle?.GetComponentInParent<ToggleTabManager>()?.UpdateVisuals();
                         }
                     }
+                });
+                _quitBtn?.onClick.AddListener(() => {
+#if UNITY_EDITOR
+                    UnityEditor.EditorApplication.isPlaying = false;
+#else
+                    Application.Quit();
+#endif
                 });
             }
 
@@ -289,6 +293,7 @@ namespace RobotSim.UI
 
         private void Start()
         {
+            Screen.fullScreen = false; // Ensure runtime starts windowed
             InitializeReferences();
             BindEvents();
             BindVisionFeed();

@@ -58,9 +58,13 @@ namespace RobotSim.Sensors
                 _pcg.OnScanCaptured += () => OnScanCaptured?.Invoke();
             }
         }
-        private void Start()
+        private void Awake()
         {
             InitializeReferences();
+        }
+        private void Start()
+        {
+            // Empty Start to maintain compatibility if other scripts expect it
         }
 
         private void setManualPoint() // unused for now

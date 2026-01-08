@@ -13072,6 +13072,7 @@ GameObject:
   - component: {fileID: 1174085791}
   - component: {fileID: 1174085792}
   - component: {fileID: 1174085800}
+  - component: {fileID: 1174085801}
   m_Layer: 0
   m_Name: SimulationManager
   m_TagString: Untagged
@@ -13107,12 +13108,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 18b42861bb07bc244901c862fd2e7117, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  CamMount: {fileID: 0}
-  PCV: {fileID: 0}
-  AnalysisClient: {fileID: 0}
-  Mover: {fileID: 0}
+  CamMount: {fileID: 938128309}
+  Mover: {fileID: 309852907}
   RobotState: {fileID: 2137607301}
-  Connector: {fileID: 0}
+  Connector: {fileID: 309852911}
   ServiceName: /calculate_icp
   _errorThreshold: 0.002
 --- !u!4 &1174085793
@@ -13150,6 +13149,20 @@ MonoBehaviour:
   SurfaceOffset: 0.001
   MatchColor: {r: 0, g: 1, b: 0, a: 1}
   ErrorColor: {r: 1, g: 0, b: 0, a: 1}
+--- !u!114 &1174085801
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1174085790}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d4fead530003cd2468815b4a2fa91554, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  Connector: {fileID: 309852911}
+  ServiceName: /process_scene
 --- !u!1 &1180414533
 GameObject:
   m_ObjectHideFlags: 0
@@ -23202,6 +23215,7 @@ GameObject:
   - component: {fileID: 2137607299}
   - component: {fileID: 2137607298}
   - component: {fileID: 2137607301}
+  - component: {fileID: 2137607302}
   m_Layer: 0
   m_Name: ur5e
   m_TagString: Untagged
@@ -23261,6 +23275,18 @@ MonoBehaviour:
   jointAnglesDegrees: []
   tcpPositionRos: {x: 0, y: 0, z: 0}
   tcpRotationEulerRos: {x: 0, y: 0, z: 0}
+--- !u!114 &2137607302
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2137607294}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 352af5f23cd0b694489ad6bd90cf08c8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
