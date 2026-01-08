@@ -97,6 +97,18 @@ namespace RobotSim.Sensors
                         }
                     }
                 }
+
+                // [추가] 모드 변경 시 데이터 초기화
+                ClearAllData();
+            }
+        }
+
+        public void ClearAllData()
+        {
+            if (_pcg != null)
+            {
+                _pcg.ClearMaster();
+                _pcg.ClearScan();
             }
         }
         public void ResetPosition()

@@ -42,6 +42,12 @@ namespace RobotSim.Sensors
             OnScanCaptured?.Invoke();
         }
 
+        public void ClearMaster()
+        {
+            masterPoints.Clear();
+            OnMasterCaptured?.Invoke();
+        }
+
         // --- Capture Logic ---
 
         public void CaptureMaster()
