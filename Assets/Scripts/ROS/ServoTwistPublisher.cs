@@ -1,13 +1,13 @@
-using UnityEngine;
+using RobotSim.Control;
+using RobotSim.Robot;
 using RosSharp;
 using RosSharp.RosBridgeClient;
+using RosSharp.RosBridgeClient.MessageTypes.Control;
 using RosSharp.RosBridgeClient.MessageTypes.Std;
+using UnityEngine;
 using RosVector3 = RosSharp.RosBridgeClient.MessageTypes.Geometry.Vector3;
 using Twist = RosSharp.RosBridgeClient.MessageTypes.Geometry.Twist;
 using TwistStamped = RosSharp.RosBridgeClient.MessageTypes.Geometry.TwistStamped;
-
-using RobotSim.Robot;
-using RobotSim.Control;
 
 namespace RobotSim.ROS
 {
@@ -19,6 +19,7 @@ namespace RobotSim.ROS
 
         protected override void Start()
         {
+            if (string.IsNullOrEmpty(Topic)) Topic = "/servo_node/delta_twist_cmds_unity";
             base.Start();
         }
 

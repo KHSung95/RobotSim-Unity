@@ -26,6 +26,7 @@ namespace RobotSim.ROS
 
         protected override void Start()
         {
+            if (string.IsNullOrEmpty(Topic)) Topic = "/unity/joint_jog";
             base.Start();
             InitializeMessage();
         }
