@@ -1,31 +1,35 @@
-using UnityEngine;
-using System.Collections.Generic;
-using RobotSim.Sensors;
-using RobotSim.ROS;
+using RobotSim.Control;
 using RobotSim.Robot;
-using RobotSim.Utils;
+using RobotSim.ROS;
 using RobotSim.ROS.Services;
+using RobotSim.Sensors;
+using RobotSim.Utils;
 using RosSharp.RosBridgeClient;
 using RosSharp.RosBridgeClient.MessageTypes.CustomServices;
 using RosSharp.RosBridgeClient.MessageTypes.Sensor;
+using System.Collections.Generic;
+using UnityEngine;
 
 namespace RobotSim.Simulation
 {
+    [RequireComponent(typeof(SceneAnalysisClient))]
+    [RequireComponent(typeof(PointCloudVisualizer))]
     public class GuidanceManager : MonoBehaviour
     {
+
         [Header("References")]
         public VirtualCameraMount CamMount; // Replaces PCG
-        public PointCloudVisualizer PCV; 
-        public SceneAnalysisClient AnalysisClient;
 
-        [Header("Industrial Logic (T_ic)")]
         public MoveRobotToPoseClient Mover;
         public RobotStateProvider RobotState;
 
         [Header("ROS Connection")]
         public RosConnector Connector;
         public string ServiceName = "/calculate_icp";
-        
+
+        private SceneAnalysisClient _analysis;
+        private PointCloudVisualizer _pcv;
+
         [Header("Settings")]
         [SerializeField] private float _errorThreshold = 0.002f;
         public float ErrorThreshold 
@@ -47,8 +51,8 @@ namespace RobotSim.Simulation
         private void Start()
         {
             if (CamMount == null) CamMount = FindFirstObjectByType<VirtualCameraMount>();
-            if (PCV == null) PCV = FindFirstObjectByType<PointCloudVisualizer>();
-            if (AnalysisClient == null) AnalysisClient = FindFirstObjectByType<SceneAnalysisClient>();
+            if (_pcv == null) _pcv = GetComponent<PointCloudVisualizer>();
+            if (_analysis == null) _analysis = GetComponent<SceneAnalysisClient>();
             
             if (Mover == null) Mover = FindFirstObjectByType<MoveRobotToPoseClient>();
             if (RobotState == null) RobotState = FindFirstObjectByType<RobotStateProvider>();
@@ -83,7 +87,7 @@ namespace RobotSim.Simulation
 
         private void HandleMasterCaptured()
         {
-            if (PCV == null) return;
+            if (_pcv == null) return;
 
             // [추가] 마스터 캡처 당시의 TCP 위치 저장
             if (_tcpTransform != null)
@@ -100,20 +104,20 @@ namespace RobotSim.Simulation
                 Matrix4x4 T_cam_to_tcp = m_T_tcp_master.inverse * CamMount.SensorTransform.localToWorldMatrix;
                 _masterPoints_TCP = TransformPoints(CamMount.MasterPoints, T_cam_to_tcp);
                 
-                PCV.UpdateMasterMesh(_masterPoints_TCP);
+                _pcv.UpdateMasterMesh(_masterPoints_TCP);
             }
             else
             {
                 // [Hand-Eye] Camera Frame is already the relative frame
                 _masterPoints_TCP = new List<Vector3>(CamMount.MasterPoints);
-                PCV.UpdateMasterMesh(_masterPoints_TCP);
+                _pcv.UpdateMasterMesh(_masterPoints_TCP);
             }
             
             // 3. Send relative Master to ROS for future Comparisons
-            if (AnalysisClient != null && _masterPoints_TCP.Count > 0)
+            if (_analysis != null && _masterPoints_TCP.Count > 0)
             {
                 PointCloud2 cloudMsg = _masterPoints_TCP.ToPointCloud2();
-                AnalysisClient.SendAnalysisRequest("SET_MASTER", 0, cloudMsg, (res) =>
+                _analysis.SendAnalysisRequest("SET_MASTER", 0, cloudMsg, (res) =>
                 {
                     if (res.success) Debug.Log("[GuidanceManager] TCP-Relative Master Cloud Set on ROS.");
                     else Debug.LogError("[GuidanceManager] Failed to set Master Cloud on ROS.");
@@ -123,19 +127,19 @@ namespace RobotSim.Simulation
 
         private void HandleScanCaptured()
         {
-            if (PCV == null || CamMount == null) return;
+            if (_pcv == null || CamMount == null) return;
 
             if (CamMount.MountType == CameraMountType.BirdEye && _tcpTransform != null)
             {
                 // [Bird-Eye] Current Camera -> Current TCP Frame
                 Matrix4x4 T_cam_to_tcp_current = _tcpTransform.worldToLocalMatrix * CamMount.SensorTransform.localToWorldMatrix;
                 List<Vector3> tcpScan = TransformPoints(CamMount.ScanPoints, T_cam_to_tcp_current);
-                PCV.UpdateScanMesh(tcpScan);
+                _pcv.UpdateScanMesh(tcpScan);
             }
             else
             {
                 // [Hand-Eye] Raw Camera Points
-                PCV.UpdateScanMesh(CamMount.ScanPoints);
+                _pcv.UpdateScanMesh(CamMount.ScanPoints);
             }
         }
 
@@ -173,7 +177,7 @@ namespace RobotSim.Simulation
 
             CaptureCurrent();
 
-            if (!runAnalysis || AnalysisClient == null) return;
+            if (!runAnalysis || _analysis == null) return;
             if (CamMount.ScanPoints.Count == 0) return;
 
             // Use TCP-relative points for comparison in Bird-Eye mode
@@ -186,15 +190,15 @@ namespace RobotSim.Simulation
 
             PointCloud2 cloudMsg = ptsToSend.ToPointCloud2();
             Debug.Log($"[GuidanceManager] Sending COMPARE request (TCP-Space) with Threshold: {ErrorThreshold:F4}");
-            AnalysisClient.SendAnalysisRequest("COMPARE", ErrorThreshold, cloudMsg, (response) => {
+            _analysis.SendAnalysisRequest("COMPARE", ErrorThreshold, cloudMsg, (response) => {
                 if (response != null && response.result_cloud != null && response.result_cloud.data.Length > 0)
                 {
                     Debug.Log($"[GuidanceManager] Received analysis result cloud: {response.result_cloud.width * response.result_cloud.height} points");
-                    if (PCV != null) 
+                    if (_pcv != null) 
                     {
                         // Heatmap points from ROS are now in TCP space (because we sent TCP space points)
-                        PCV.ColorizeFromAnalysis(response.result_cloud, out List<Vector3> pts, out List<Color> colors);
-                        PCV.UpdateScanMesh(pts, colors);
+                        _pcv.ColorizeFromAnalysis(response.result_cloud, out List<Vector3> pts, out List<Color> colors);
+                        _pcv.UpdateScanMesh(pts, colors);
                     }
                 }
                 else
@@ -220,10 +224,10 @@ namespace RobotSim.Simulation
             }
 
             // Save state and hide scan during guidance
-            if (PCV != null)
+            if (_pcv != null)
             {
-                _originalShowScanState = PCV.ShowScan;
-                PCV.ShowScan = false;
+                _originalShowScanState = _pcv.ShowScan;
+                _pcv.ShowScan = false;
             }
 
             if (CamMount.ScanPoints.Count == 0)
@@ -266,13 +270,13 @@ namespace RobotSim.Simulation
         private void Update()
         {
             // Update Visualizer Pose (Manually sync world pose as a separate object)
-            if (PCV != null && CamMount != null)
+            if (_pcv != null && CamMount != null)
             {
                 Transform targetPoseSource = (CamMount.MountType == CameraMountType.BirdEye && _tcpTransform != null) 
                     ? _tcpTransform 
                     : CamMount.SensorTransform;
 
-                PCV.SetPose(targetPoseSource.position, targetPoseSource.rotation);
+                _pcv.SetPose(targetPoseSource.position, targetPoseSource.rotation);
             }
 
             // Robot Movement Detection and Stop Logic
@@ -286,6 +290,10 @@ namespace RobotSim.Simulation
             }
         }
 
+        public void SetPointCloudVisible(bool visible)
+        {
+            _pcv.ShowMaster = _pcv.ShowScan = visible;
+        }
         private void UpdateRobotStateAndStopDetection()
         {
             if (RobotState == null || RobotState.TcpTransform == null) return;
@@ -384,7 +392,7 @@ namespace RobotSim.Simulation
 
         private void RestoreScanState()
         {
-            if (PCV != null) PCV.ShowScan = _originalShowScanState;
+            if (_pcv != null) _pcv.ShowScan = _originalShowScanState;
             _waitingForStop = false;
             _movementStarted = false;
         }
@@ -447,7 +455,7 @@ namespace RobotSim.Simulation
             
             Debug.Log("[GuidanceManager] Guidance workflow complete. Performing final analysis.");
             AnalyzeScene(true);
-            if (PCV != null) PCV.ShowScan = _originalShowScanState;
+            if (_pcv != null) _pcv.ShowScan = _originalShowScanState;
         }
 
         private List<Vector3> TransformPoints(List<Vector3> points, Matrix4x4 transform)
@@ -464,7 +472,7 @@ namespace RobotSim.Simulation
             m.SetRow(1, new Vector4(arr[4], arr[5], arr[6], arr[7]));
             m.SetRow(2, new Vector4(arr[8], arr[9], arr[10], arr[11]));
             m.SetRow(3, new Vector4(arr[12], arr[13], arr[14], arr[15]));
-            return m; 
+            return m;
         }
     }
 }

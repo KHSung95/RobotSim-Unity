@@ -49,19 +49,17 @@ public class SelectionManager : MonoBehaviour
             if (IsRobotSelected)
             {
                 _robotClient = _currentSelected.GetComponent<RobotSim.ROS.MoveRobotToPoseClient>();
-                _currentSelectedTransform = _robotClient.targetTransform;
+                //_currentSelectedTransform = _robotClient.targetTransform;
+                //if (IsRobotSelected) SetTargetGizmoVisibility(true);
             }
             else
             {
                 _robotClient = null;
                 _currentSelectedTransform = _currentSelected.transform;
+                _activeHandle = _handleManager.CreateHandle(_currentSelectedTransform);
+                ConfigureHandle(_activeHandle);
             }
 
-            _activeHandle = _handleManager.CreateHandle(_currentSelectedTransform);
-            ConfigureHandle(_activeHandle);
-
-            // [New] 로봇이 선택된 경우에만 Target Gizmo 메쉬 보이기
-            if (IsRobotSelected) SetTargetGizmoVisibility(true);
         }
     }
 

@@ -23,6 +23,9 @@ namespace RobotSim.UI
         private GameObject Navbar;
         private Toggle _settingsToggle, _masterToggle;
         private GameObject ConsolePanel;
+        private TextMeshProUGUI _consoleText;
+        private System.Collections.Generic.Queue<string> _logQueue = new();
+        private const int MaxLogLines = 50;
         private GameObject Sidebar;
         
         // Vision Reference
@@ -52,6 +55,10 @@ namespace RobotSim.UI
         // Control Panel
         private GameObject _controlPanel;
 
+        // Temporary Settings State (for Apply on OK)
+        private string _tempThresholdStr;
+        private bool _tempIsHandEye;
+
         private void InitializeReferences()
         {
             Guidance ??= FindObjectOfType<GuidanceManager>();
@@ -70,6 +77,10 @@ namespace RobotSim.UI
             }
 
             ConsolePanel = uiRoot?.Find("Console")?.gameObject;
+            if (ConsolePanel != null)
+            {
+                _consoleText = ConsolePanel.transform.FindDeepChild("Text")?.GetComponent<TextMeshProUGUI>();
+            }
             Sidebar = uiRoot?.Find("Sidebar")?.gameObject;
             if (Sidebar != null)
             {
@@ -143,11 +154,7 @@ namespace RobotSim.UI
                 _guidanceBtn?.onClick.AddListener(() => Guidance?.RunGuidance());
 
                 _pointViewToggle?.onValueChanged.AddListener(v => {
-                    if (Guidance != null && Guidance.PCV != null)
-                    {
-                        Guidance.PCV.ShowMaster = v;
-                        Guidance.PCV.ShowScan = v;
-                    }
+                    Guidance?.SetPointCloudVisible(v);
                 });
             }
 
@@ -160,8 +167,16 @@ namespace RobotSim.UI
                         _settingsModal.SetActive(v);
                         if (v && Guidance != null && _settingsThreshold != null)
                         {
-                            // Pre-fill with current value (converting back from meters to mm)
-                            _settingsThreshold.text = (Guidance.ErrorThreshold * 1000f).ToString("F1");
+                            // Initialize temp state from current settings
+                            _tempThresholdStr = (Guidance.ErrorThreshold * 1000f).ToString("F1");
+                            _tempIsHandEye = (CamMount.MountType == CameraMountType.HandEye);
+                            
+                            _settingsThreshold.text = _tempThresholdStr;
+                            _handEyeToggle?.SetIsOnWithoutNotify(_tempIsHandEye);
+                            _birdEyeToggle?.SetIsOnWithoutNotify(!_tempIsHandEye);
+                            
+                            // Visual refresh for modal toggles
+                            _handEyeToggle?.GetComponentInParent<ToggleTabManager>()?.UpdateVisuals();
                         }
                     }
                 });
@@ -172,42 +187,77 @@ namespace RobotSim.UI
                 _captureMasterBtn?.onClick.AddListener(() =>
                 {
                     Guidance?.CaptureMaster();
-                    _masterToggle?.SetIsOnWithoutNotify(false);
-                    OnMasterModeChanged(false);
+                    // Just set isOn = false, which triggers onValueChanged listener 
+                    // and ensures ToggleTabManager visuals update.
+                    if (_masterToggle != null) _masterToggle.isOn = false;
                 });
             }
 
             if (_settingsModal != null)
             {
-                bindSettingModalClose("Button_Close");
+                bindSettingModalClose("Button_Cancel");
                 bindSettingModalClose("Button_X");
-                bindSettingModalClose("Button_Ok");
+                
+                _handEyeToggle?.onValueChanged.AddListener(v => { if (v) _tempIsHandEye = true; });
+                _birdEyeToggle?.onValueChanged.AddListener(v => { if (v) _tempIsHandEye = false; });
 
-                _handEyeToggle?.onValueChanged.AddListener(v => { if (v) SetCameraMountMode(true); });
-                _birdEyeToggle?.onValueChanged.AddListener(v => { if (v) SetCameraMountMode(false); });
-
-                _settingsThreshold?.onEndEdit.AddListener(v => UpdateThreshold(v));
-                _settingsOkBtn?.onClick.AddListener(() => UpdateThreshold(_settingsThreshold.text));
+                _settingsThreshold?.onValueChanged.AddListener(v => _tempThresholdStr = v);
+                
+                _settingsOkBtn?.onClick.AddListener(() => {
+                    ApplySettingsFromModal();
+                    _settingsModal?.SetActive(false);
+                    if (_settingsToggle != null) _settingsToggle.isOn = false;
+                });
             }
         }
 
-        private void UpdateThreshold(string val)
+        private void OnEnable()
         {
-            if (string.IsNullOrEmpty(val)) return;
+            Application.logMessageReceived += HandleLog;
+        }
 
-            if (float.TryParse(val, out float res))
+        private void OnDisable()
+        {
+            Application.logMessageReceived -= HandleLog;
+        }
+
+        private void HandleLog(string logString, string stackTrace, LogType type)
+        {
+            if (_consoleText == null) return;
+
+            string color = "white";
+            if (type == LogType.Error || type == LogType.Exception) color = "#ff4444";
+            else if (type == LogType.Warning) color = "#ffbb00";
+            else if (type == LogType.Log) color = "#cccccc";
+
+            string timestamp = System.DateTime.Now.ToString("HH:mm:ss");
+            string entry = $"<color=#888888>[{timestamp}]</color> <color={color}>{logString}</color>";
+
+            _logQueue.Enqueue(entry);
+            while (_logQueue.Count > MaxLogLines)
+                _logQueue.Dequeue();
+
+            _consoleText.text = string.Join("\n", _logQueue.ToArray());
+        }
+
+        private void ApplySettingsFromModal()
+        {
+            // 1. Apply Threshold
+            if (!string.IsNullOrEmpty(_tempThresholdStr))
             {
-                if (Guidance != null)
+                if (float.TryParse(_tempThresholdStr, out float res))
                 {
-                    float thresholdInMeters = res / 1000f;
-                    Guidance.ErrorThreshold = thresholdInMeters;
-                    Debug.Log($"[UnifiedControlUI] Threshold updated: UI Input={res}mm -> Meter={thresholdInMeters}m");
+                    if (Guidance != null)
+                    {
+                        float thresholdInMeters = res / 1000f;
+                        Guidance.ErrorThreshold = thresholdInMeters;
+                        Debug.Log($"[UnifiedControlUI] Threshold applied: {res}mm");
+                    }
                 }
             }
-            else
-            {
-                Debug.LogWarning($"[UnifiedControlUI] Failed to parse threshold value: '{val}'");
-            }
+
+            // 2. Apply Camera Mode
+            SetCameraMountMode(_tempIsHandEye);
         }
 
         private void bindSettingModalClose(string btnName)

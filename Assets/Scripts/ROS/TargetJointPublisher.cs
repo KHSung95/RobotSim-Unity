@@ -9,6 +9,9 @@ namespace RobotSim.ROS
 {
     public class TargetJointPublisher : UnityPublisher<JointState>
     {
+        [Header("Model Reference")]
+        public RobotStateProvider StateProvider;
+
         [Header("ROS Settings")]
         public string FrameId = "base_link";
 
@@ -24,12 +27,19 @@ namespace RobotSim.ROS
             if (string.IsNullOrEmpty(Topic)) Topic = "/joint_commands";
             
             // Architectural Sync: Get joint names from the Model (RobotStateProvider)
-            var stateProvider = GetComponent<RobotStateProvider>();
-            if (stateProvider != null)
+            if (StateProvider == null) StateProvider = GetComponent<RobotStateProvider>();
+            if (StateProvider == null) StateProvider = FindObjectOfType<RobotStateProvider>();
+
+            if (StateProvider != null)
             {
-                if (stateProvider.JointNames == null) stateProvider.InitializeReferences();
-                JointNames = stateProvider.JointNames;
-                FrameId = stateProvider.BaseFrameId; 
+                if (StateProvider.JointNames == null) StateProvider.InitializeReferences();
+                JointNames = StateProvider.JointNames;
+                FrameId = StateProvider.BaseFrameId; 
+            }
+            else
+            {
+                Debug.LogError("[TargetJointPublisher] No RobotStateProvider found! Cannot initialize joint names.");
+                JointNames = new string[0];
             }
 
             base.Start();

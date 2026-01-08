@@ -1,88 +1,73 @@
 using UnityEngine;
-using RobotSim.Robot;
-
 using RosSharp.RosBridgeClient;
+using RosSharp.RosBridgeClient.MessageTypes.Control; // JointJogRos2 네임스페이스 확인 필요
 using RosSharp.RosBridgeClient.MessageTypes.Std;
-using RosSharp.RosBridgeClient.MessageTypes.Control;
+
+using RobotSim.Robot;
+using RobotSim.Control;
 
 namespace RobotSim.ROS
 {
-    // Using JointJogRos2 instead of the standard JointJog
+    [RequireComponent(typeof(RosJogAdapter))]
     public class JointJogPublisher : UnityPublisher<JointJogRos2>
     {
-        [Header("ROS Settings")]
-        public string FrameId = "base_link";
+        private string FrameId = "base_link";
+        private RobotStateProvider StateProvider;
 
-        // Joint Settings (Automated via RobotStateProvider)
-        private string[] JointNames;
-        
-        private JointJogRos2 message;
+        private string[] _allJointNames;
+
+        // 메시지 객체 재사용을 위한 캐싱
+        private JointJogRos2 _cachedMessage;
+
+        // 배열 할당 최소화를 위해 미리 할당
+        private string[] _singleNameArray = new string[1];
+        private double[] _singleVelArray = new double[1];
+        private double[] _emptyDispArray = new double[0];
 
         protected override void Start()
         {
-            if (string.IsNullOrEmpty(Topic)) Topic = "/unity/joint_jog";
-            
-            // Architectural Sync: Get joint names from the Model (RobotStateProvider)
-            var stateProvider = GetComponent<RobotStateProvider>();
-            if (stateProvider != null)
-            {
-                if (stateProvider.JointNames == null) stateProvider.InitializeReferences();
-                JointNames = stateProvider.JointNames;
-                FrameId = stateProvider.BaseFrameId;
-            }
             base.Start();
             InitializeMessage();
         }
 
         private void InitializeMessage()
         {
-            message = new JointJogRos2
+            // 한 번만 생성하고 내용만 바꿔서 씁니다.
+            _cachedMessage = new JointJogRos2
             {
                 header = new Header { frame_id = FrameId },
-                joint_names = JointNames,
-                velocities = new double[JointNames.Length],
-                displacements = new double[0], // Optional, leaving empty
+                joint_names = _singleNameArray,
+                velocities = _singleVelArray,
+                displacements = _emptyDispArray,
                 duration = 0
             };
         }
 
+        public void SetRobotStateProvider(RobotStateProvider rsp)
+        {
+            StateProvider = rsp;
+            if (StateProvider != null)
+            {
+                if (StateProvider.JointNames == null) StateProvider.InitializeReferences();
+                _allJointNames = StateProvider.JointNames;
+                FrameId = StateProvider.BaseFrameId;
+            }
+        }
+
         public void PublishJog(int jointIndex, float velocity)
         {
-            if (JointNames == null || JointNames.Length == 0)
-            {
-                Debug.LogError("[JointJogPublisher] JointNames is empty! Cannot publish jog.");
-                return;
-            }
+            if (_allJointNames == null || _allJointNames.Length == 0) return;
+            if (jointIndex < 0 || jointIndex >= _allJointNames.Length) return;
 
-            if (jointIndex < 0 || jointIndex >= JointNames.Length)
-            {
-                Debug.LogWarning($"[JointJogPublisher] Invalid joint index: {jointIndex}");
-                return;
-            }
+            // 1. 메시지 내용 업데이트 (new 할당 없음)
+            _cachedMessage.header.Update(); // 시퀀스 증가 및 타임스탬프 갱신
 
-            // Create a message containing ONLY the single joint we are moving
-            var msg = new JointJogRos2
-            {
-                header = new Header { frame_id = FrameId },
-                joint_names = new string[] { JointNames[jointIndex] },
-                velocities = new double[] { (double)velocity },
-                displacements = new double[0],
-                duration = 0
-            };
+            // 2. 데이터 주입
+            _singleNameArray[0] = _allJointNames[jointIndex]; // 이름 갱신
+            _singleVelArray[0] = (double)velocity;            // 속도 갱신
 
-            msg.header.Update();
-            // Populating proper ROS timestamp
-            uint secs = (uint)UnityEngine.Time.time;
-            uint nsecs = (uint)((UnityEngine.Time.time - secs) * 1e9);
-            msg.header.stamp = new RosSharp.RosBridgeClient.MessageTypes.BuiltinInterfaces.Time((int)secs, nsecs);
-
-            // Debug log to verify Unity contents
-            if (Time.frameCount % 30 == 0) // Log approx once per second
-            {
-                 Debug.Log($"[JointJogPublisher] Publishing: {msg.joint_names[0]} at velocity {msg.velocities[0]}");
-            }
-
-            Publish(msg);
+            // 4. 발행
+            Publish(_cachedMessage);
         }
     }
 }

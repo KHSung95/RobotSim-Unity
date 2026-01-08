@@ -238,7 +238,7 @@ namespace RobotSim.Editor
             rtC.offsetMin = new Vector2(60, 0);
             rtC.offsetMax = new Vector2(-360, 160);
 
-            var consoleTxt = CreateText(console.transform, "[System] Ready...", 12, FontStyles.Normal, Theme.TextDim);
+            var consoleTxt = CreateText(console.transform, "", 12, FontStyles.Normal, Theme.TextDim);
             //consoleTxt.alignment = TextAlignmentOptions.TopLeft;
             var rtCT = consoleTxt.GetComponent<RectTransform>();
             rtCT.anchorMin = Vector2.zero; rtCT.anchorMax = Vector2.one;

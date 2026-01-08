@@ -1,24 +1,35 @@
 using UnityEngine;
-
 using RosSharp;
 using RosSharp.RosBridgeClient;
-
-using TwistStamped = RosSharp.RosBridgeClient.MessageTypes.Geometry.TwistStamped;
-using Twist = RosSharp.RosBridgeClient.MessageTypes.Geometry.Twist;
-using RosVector3 = RosSharp.RosBridgeClient.MessageTypes.Geometry.Vector3;
 using RosSharp.RosBridgeClient.MessageTypes.Std;
+using RosVector3 = RosSharp.RosBridgeClient.MessageTypes.Geometry.Vector3;
+using Twist = RosSharp.RosBridgeClient.MessageTypes.Geometry.Twist;
+using TwistStamped = RosSharp.RosBridgeClient.MessageTypes.Geometry.TwistStamped;
+
+using RobotSim.Robot;
+using RobotSim.Control;
 
 namespace RobotSim.ROS
 {
+    [RequireComponent(typeof(RosJogAdapter))]
     public class ServoTwistPublisher : UnityPublisher<TwistStamped>
     {
-        [Header("Servo Configuration")]
-        public string FrameId = "base_link";
+        private string FrameId = "base_link";
+        private RobotStateProvider StateProvider;
 
         protected override void Start()
         {
-            if (string.IsNullOrEmpty(Topic)) Topic = "/servo_node/delta_twist_cmds_unity";
             base.Start();
+        }
+
+        public void SetRobotStateProvider(RobotStateProvider rsp)
+        {
+            StateProvider = rsp;
+            if (StateProvider != null)
+            {
+                if (StateProvider.JointNames == null) StateProvider.InitializeReferences();
+                FrameId = StateProvider.BaseFrameId;
+            }
         }
 
         public void PublishCommand(Vector3 linear, Vector3 angular)

@@ -3,9 +3,33 @@ using UnityEngine.UI;
 using RobotSim.Robot;
 using RobotSim.Control;
 using Unity.VisualScripting;
+using UnityEngine.EventSystems;
+using System;
+using RosSharp;
 
 namespace RobotSim.UI
 {
+    public class JogButton : MonoBehaviour, IPointerDownHandler, IPointerUpHandler
+    {
+        [Header("Settings")]
+        public int AxisIndex;       // 0:X, 1:Y, 2:Z, 3:Rx, 4:Ry, 5:Rz
+        public float Direction;     // 1: Positive, -1: Negative
+
+        // 이벤트 최적화: Action을 통해 구독자에게 알림
+        public static event Action<int, float> OnJogStateChanged;
+
+        public void OnPointerDown(PointerEventData eventData)
+        {
+            // 버튼이 눌리면: 해당 축으로 Direction 속도 적용
+            OnJogStateChanged?.Invoke(AxisIndex, Direction);
+        }
+
+        public void OnPointerUp(PointerEventData eventData)
+        {
+            // 버튼을 떼면: 속도를 0으로 보냄
+            OnJogStateChanged?.Invoke(AxisIndex, 0f);
+        }
+    }
     /// <summary>
     /// Handles the Robot Jogging UI components, separating logic from UnifiedControlUI.
     /// Includes FK/IK mode switching, Speed control, and Axis jogging buttons.
@@ -23,6 +47,8 @@ namespace RobotSim.UI
         public Slider SpeedSlider;
         public RobotAxisRow[] AxisRows;
 
+        private float[] currentInputs = new float[6];
+
         private bool _isFKMode = true;
 
         public void Initialize(RobotStateProvider stateProvider, RosJogAdapter jogAdapter)
@@ -36,7 +62,8 @@ namespace RobotSim.UI
         {
             FkToggle?.onValueChanged.AddListener((v) => { if (v) SetControllerMode(true); });
             IkToggle?.onValueChanged.AddListener((v) => { if (v) SetControllerMode(false); });
-
+            
+            JogAdapter.SpeedMultiplier = 0.5f;
             SpeedSlider?.onValueChanged.AddListener((v) =>
             {
                 if (JogAdapter != null) JogAdapter.SpeedMultiplier = v;
@@ -50,6 +77,7 @@ namespace RobotSim.UI
                     BindJogBtn(AxisRows[i].AddBtn, i, 1);
                 }
             }
+            JogButton.OnJogStateChanged += HandleJogInput;
         }
 
         private void BindJogBtn(Button btn, int index, float dir)
@@ -58,6 +86,15 @@ namespace RobotSim.UI
             var jog = btn.gameObject.GetOrAddComponent<JogButton>();
             jog.AxisIndex = index;
             jog.Direction = dir;
+        }
+
+        // 1. 이벤트 핸들러: 입력 상태만 갱신 (매우 가벼움)
+        private void HandleJogInput(int axisIndex, float value)
+        {
+            if (axisIndex >= 0 && axisIndex < currentInputs.Length)
+            {
+                currentInputs[axisIndex] = value;
+            }
         }
 
         public void SetControllerMode(bool isFK)
@@ -94,49 +131,33 @@ namespace RobotSim.UI
 
         public void Update()
         {
-            float speed = SpeedSlider ? SpeedSlider.value : 0.5f;
             if (AxisRows == null) return;
-
-            for (int i = 0; i < AxisRows.Length; i++)
-            {
-                var row = AxisRows[i];
-                if (row == null) continue;
-
-                var negJog = row.SubBtn.GetComponent<JogButton>();
-                var posJog = row.AddBtn.GetComponent<JogButton>();
-
-                float dir = 0;
-                if (negJog != null && negJog.IsPressed) dir = -1;
-                if (posJog != null && posJog.IsPressed) dir = 1;
-
-                if (dir != 0 && JogAdapter != null)
-                {
-                    JogAdapter.SpeedMultiplier = speed;
-
-                    if (_isFKMode)
-                    {
-                        JogAdapter.JointJog(i, dir);
-                    }
-                    else
-                    {
-                        // Calculate Twist Vector
-                        Vector3 lin = Vector3.zero;
-                        Vector3 ang = Vector3.zero;
-
-                        if (i == 0) lin.z = dir;      // ROS X
-                        else if (i == 1) lin.x = -dir; // ROS Y
-                        else if (i == 2) lin.y = dir;  // ROS Z
-                        else if (i == 3) ang.z = dir;  // ROS Rx
-                        else if (i == 4) ang.x = -dir; // ROS Ry
-                        else if (i == 5) ang.y = dir;  // ROS Rz
-
-                        JogAdapter.Jog(lin, ang);
-                    }
-                }
-            }
 
             if (_isFKMode) UpdateFKDisplay();
             else UpdateIKDisplay();
+
+            bool isAnyInput = false;
+            for (int i = 0; i < 6; i++) if (currentInputs[i] != 0) isAnyInput = true;
+            if (!isAnyInput) return;
+
+            if (_isFKMode)
+            {
+                for (int i = 0; i < 6; i++)
+                {
+                    if (currentInputs[i] != 0)
+                    {
+                        JogAdapter.JointJog(i, currentInputs[i]);
+                        break;
+                    }
+                }
+            }
+            else
+            {
+                Vector3 moveDir = new Vector3(currentInputs[0], currentInputs[1], currentInputs[2]);
+                Vector3 rotDir = new Vector3(currentInputs[3], currentInputs[4], currentInputs[5]);
+
+                JogAdapter.Jog(moveDir, rotDir);
+            }
         }
 
         private void UpdateFKDisplay()
@@ -154,8 +175,8 @@ namespace RobotSim.UI
         private void UpdateIKDisplay()
         {
             if (AxisRows == null || AxisRows.Length < 6 || StateProvider == null) return;
-            Vector3 pos = StateProvider.TcpPositionRos;
-            Vector3 rot = StateProvider.TcpRotationEulerRos;
+            Vector3 pos = StateProvider.TcpPositionRos.Ros2Unity();
+            Vector3 rot = StateProvider.TcpRotationEulerRos.Ros2Unity();
 
             AxisRows[0].ValueText.text = $"{(pos.x * 1000):F1}";
             AxisRows[1].ValueText.text = $"{(pos.y * 1000):F1}";

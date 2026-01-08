@@ -155,7 +155,6 @@ GameObject:
   - component: {fileID: 2419454172703691255}
   - component: {fileID: 8648174729164090801}
   - component: {fileID: 8924445917510523976}
-  - component: {fileID: 8445236987914277975}
   m_Layer: 0
   m_Name: Camera
   m_TagString: Untagged
@@ -241,31 +240,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2b2b18a6720e9a3409e7d970b80b1ca4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  MatchColor: {r: 0, g: 1, b: 0, a: 1}
-  ErrorColor: {r: 1, g: 0, b: 0, a: 1}
-  ErrorThreshold: 0.01
   Width: 200
   Height: 200
   MaxDistance: 2
   ScanTypes:
     serializedVersion: 2
     m_Bits: 64
-  ShowPoints: 1
-  PointSize: 0.01
   NoiseLevel: 0.0005
---- !u!114 &8445236987914277975
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2918419671596022032}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 27640de7130553c478527bf8adb42569, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  DepthShader: {fileID: 4800000, guid: 6274c75c637398441b5f0160e63304a8, type: 3}
 --- !u!1 &5997401378413873757
 GameObject:
   m_ObjectHideFlags: 0
@@ -277,7 +258,6 @@ GameObject:
   - component: {fileID: 7881171060184962048}
   - component: {fileID: 5641541598580986634}
   - component: {fileID: 8120222619758793243}
-  - component: {fileID: 945882240134434336}
   m_Layer: 0
   m_Name: CameraTool
   m_TagString: Untagged
@@ -330,17 +310,3 @@ MonoBehaviour:
   StateProvider: {fileID: 0}
   RelativePosition: {x: 0, y: 0.05, z: 0.05}
   RelativeRotation: {x: 0, y: 0, z: 0}
---- !u!114 &945882240134434336
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5997401378413873757}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d4fead530003cd2468815b4a2fa91554, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  Connector: {fileID: 8133013232631558044}
-  ServiceName: /process_scene

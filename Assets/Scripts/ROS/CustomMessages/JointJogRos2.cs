@@ -11,7 +11,7 @@ namespace RosSharp.RosBridgeClient.MessageTypes.Control
     public class JointJogRos2 : Message
     {
         [JsonIgnore]
-        public const string RosMessageName = "control_msgs/JointJog";
+        public const string RosMessageName = "/unity/joint_jog";
 
         public Header header;
         public string[] joint_names;
