@@ -46,7 +46,7 @@ namespace RobotSim.Simulation
         private Transform _camTransform;
         private Matrix4x4 m_T_tcp_to_cam;
         private Matrix4x4 m_T_tcp_master;     // Saved TCP Pose at Master Capture time
-        private List<Vector3> _masterPoints_TCP = new List<Vector3>(); // Cached Master in TCP Frame
+        private List<PointData> _masterPoints_TCP = new List<PointData>(); // Cached Master in TCP Frame
 
         private void Start()
         {
@@ -102,15 +102,15 @@ namespace RobotSim.Simulation
                 // [Bird-Eye] Convert Camera -> Master-TCP Frame
                 // T_tcp_to_cam_at_capture = T_tcp_master_inv * T_cam_world
                 Matrix4x4 T_cam_to_tcp = m_T_tcp_master.inverse * CamMount.SensorTransform.localToWorldMatrix;
-                _masterPoints_TCP = TransformPoints(CamMount.MasterPoints, T_cam_to_tcp);
+                _masterPoints_TCP = CamMount.MasterPoints.TransformPoints(T_cam_to_tcp);
                 
-                _pcv.UpdateMasterMesh(_masterPoints_TCP);
+                _pcv.UpdateMasterMesh(_masterPoints_TCP.Points());
             }
             else
             {
                 // [Hand-Eye] Camera Frame is already the relative frame
-                _masterPoints_TCP = new List<Vector3>(CamMount.MasterPoints);
-                _pcv.UpdateMasterMesh(_masterPoints_TCP);
+                _masterPoints_TCP = new List<PointData>(CamMount.MasterPoints);
+                _pcv.UpdateMasterMesh(_masterPoints_TCP.Points());
             }
             
             // 3. Send relative Master to ROS for future Comparisons
@@ -132,29 +132,14 @@ namespace RobotSim.Simulation
             {
                 // [Bird-Eye] Current Camera -> Current TCP Frame
                 Matrix4x4 T_cam_to_tcp_current = _tcpTransform.worldToLocalMatrix * CamMount.SensorTransform.localToWorldMatrix;
-                List<Vector3> tcpScan = TransformPoints(CamMount.ScanPoints, T_cam_to_tcp_current);
-                _pcv.UpdateScanMesh(tcpScan);
+                List<PointData> tcpScan = CamMount.ScanPoints.TransformPoints(T_cam_to_tcp_current);
+                _pcv.UpdateScanMesh(tcpScan.Points());
             }
             else
             {
                 // [Hand-Eye] Raw Camera Points
-                _pcv.UpdateScanMesh(CamMount.ScanPoints);
+                _pcv.UpdateScanMesh(CamMount.ScanPoints.Points());
             }
-        }
-
-        private List<Vector3> TransformPointsCamToTcp(List<Vector3> camPoints)
-        {
-            if (_tcpTransform == null || CamMount == null) return camPoints;
-            
-            // T_tcp_inv * T_cam
-            Matrix4x4 T_tcp_to_cam = _tcpTransform.worldToLocalMatrix * CamMount.SensorTransform.localToWorldMatrix;
-            
-            List<Vector3> tcpPoints = new List<Vector3>(camPoints.Count);
-            foreach (var p in camPoints)
-            {
-                tcpPoints.Add(T_tcp_to_cam.MultiplyPoint3x4(p));
-            }
-            return tcpPoints;
         }
 
         [ContextMenu("Capture Master")]
@@ -180,11 +165,11 @@ namespace RobotSim.Simulation
             if (CamMount.ScanPoints.Count == 0) return;
 
             // Use TCP-relative points for comparison in Bird-Eye mode
-            List<Vector3> ptsToSend = CamMount.ScanPoints;
+            List<PointData> ptsToSend = CamMount.ScanPoints;
             if (CamMount.MountType == CameraMountType.BirdEye && _tcpTransform != null)
             {
                 Matrix4x4 T_cam_to_tcp = _tcpTransform.worldToLocalMatrix * CamMount.SensorTransform.localToWorldMatrix;
-                ptsToSend = TransformPoints(CamMount.ScanPoints, T_cam_to_tcp);
+                ptsToSend = CamMount.ScanPoints.TransformPoints(T_cam_to_tcp);
             }
 
             PointCloud2 cloudMsg = ptsToSend.ToPointCloud2();
@@ -264,7 +249,7 @@ namespace RobotSim.Simulation
             {
                 masterMsg = _masterPoints_TCP.ToPointCloud2();
                 Matrix4x4 T_cam_to_tcp = _tcpTransform.worldToLocalMatrix * CamMount.SensorTransform.localToWorldMatrix;
-                currentMsg = TransformPoints(CamMount.ScanPoints, T_cam_to_tcp).ToPointCloud2();
+                currentMsg = CamMount.ScanPoints.TransformPoints(T_cam_to_tcp).ToPointCloud2();
                 Debug.Log("[GuidanceManager] ICP: Sending TCP-relative points (Bird-Eye)");
             }
             else
@@ -474,13 +459,6 @@ namespace RobotSim.Simulation
             Debug.Log("[GuidanceManager] Guidance workflow complete. Performing final analysis.");
             AnalyzeScene(true);
             if (_pcv != null) _pcv.ShowScan = _originalShowScanState;
-        }
-
-        private List<Vector3> TransformPoints(List<Vector3> points, Matrix4x4 transform)
-        {
-            List<Vector3> result = new List<Vector3>(points.Count);
-            foreach (var p in points) result.Add(transform.MultiplyPoint3x4(p));
-            return result;
         }
 
         private Matrix4x4 ArrayToMatrix(float[] arr)

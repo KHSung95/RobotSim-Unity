@@ -35,8 +35,8 @@ namespace RobotSim.Sensors
         public System.Action OnScanCaptured;
 
         // Public Accessors
-        public List<Vector3> MasterPoints => _pcg != null ? _pcg.MasterPoints : new List<Vector3>();
-        public List<Vector3> ScanPoints => _pcg != null ? _pcg.ScanPoints : new List<Vector3>();
+        public List<PointData> MasterPoints => _pcg != null ? _pcg.MasterPoints : new List<PointData>();
+        public List<PointData> ScanPoints => _pcg != null ? _pcg.ScanPoints : new List<PointData>();
         public Transform SensorTransform => _pcg != null ? _pcg.transform : transform;
 
         /// <summary>
