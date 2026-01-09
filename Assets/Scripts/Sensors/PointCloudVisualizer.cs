@@ -220,7 +220,6 @@ namespace RobotSim.Sensors
                     }
                 }
 
-                UpdateScanMesh(points, colors);
             }
         }
 
