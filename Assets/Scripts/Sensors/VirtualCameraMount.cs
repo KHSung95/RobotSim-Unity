@@ -100,6 +100,11 @@ namespace RobotSim.Sensors
                             transform.localPosition = Vector3.zero;
                             transform.localRotation = Quaternion.identity;
                         }
+                        else
+                        {
+                            transform.localPosition = new Vector3(0.058f, 1.263f, 0.13f);
+                            transform.localRotation = Quaternion.Euler(0f, 0f, -120.0f);
+                        }
                     }
                 }
 
