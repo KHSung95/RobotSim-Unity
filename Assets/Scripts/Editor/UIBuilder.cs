@@ -1,9 +1,11 @@
 using UnityEngine;
-using UnityEditor;
 using UnityEngine.UI;
+using UnityEditor;
+
 using TMPro;
-using RobotSim.Sensors;
 using System.Collections.Generic;
+
+using RobotSim.UI;
 
 namespace RobotSim.Editor
 {
@@ -106,12 +108,12 @@ namespace RobotSim.Editor
                 row.GetComponent<HorizontalLayoutGroup>().childAlignment = TextAnchor.MiddleRight;
 
                 // Visual Manager for tabs
-                var visualManager = row.AddComponent<RobotSim.UI.ToggleTabManager>();
+                var visualManager = row.AddComponent<ToggleTabManager>();
 
                 // Functional Toggles
                 var masterData = CreateInteractiveToggle(row.transform, "Pointcloud", true, 24, null);
 
-                visualManager.Tabs = new List<RobotSim.UI.ToggleTabManager.TabItem> { masterData };
+                visualManager.Tabs = new List<ToggleTabManager.TabItem> { masterData };
                 visualManager.Initialize();
 
                 GameObject feed = new GameObject("Feed", typeof(RectTransform), typeof(RawImage), typeof(LayoutElement));
@@ -187,12 +189,12 @@ namespace RobotSim.Editor
                 tGroup.allowSwitchOff = false;
 
                 // Visual Manager for persistent active state
-                var visualManager = tabs.AddComponent<RobotSim.UI.ToggleTabManager>();
+                var visualManager = tabs.AddComponent<ToggleTabManager>();
 
                 var fk = CreateInteractiveToggle(tabs.transform, "FK", true, 40, tGroup);
                 var ik = CreateInteractiveToggle(tabs.transform, "IK", false, 40, tGroup);
 
-                visualManager.Tabs = new List<RobotSim.UI.ToggleTabManager.TabItem> { fk, ik };
+                visualManager.Tabs = new List<ToggleTabManager.TabItem> { fk, ik };
                 visualManager.Initialize();
 
                 // --- 3. Universal Control Panel (하나만 생성!) ---
@@ -361,7 +363,7 @@ namespace RobotSim.Editor
             toggle.targetGraphic = bgImg;
 
             // NavBarToggle Script
-            var navToggle = obj.AddComponent<RobotSim.UI.NavBarToggle>();
+            var navToggle = obj.AddComponent<NavBarToggle>();
             navToggle.Toggle = toggle;
             navToggle.TargetImage = img;
             navToggle.ActiveColor = activeColor;
@@ -386,7 +388,7 @@ namespace RobotSim.Editor
             r.GetComponent<LayoutElement>().minHeight = 24;
 
             // Attach the container component
-            var rowRef = r.AddComponent<RobotSim.UI.RobotAxisRow>();
+            var rowRef = r.AddComponent<RobotAxisRow>();
 
             var hGroup = r.GetComponent<HorizontalLayoutGroup>();
             hGroup.spacing = 16;
@@ -448,7 +450,7 @@ namespace RobotSim.Editor
         }
 
         // Real Toggle logic with improved Cyan/Black active state and ToggleGroup support
-        private static RobotSim.UI.ToggleTabManager.TabItem CreateInteractiveToggle(Transform p, string t, bool startOn, float height, ToggleGroup group)
+        private static ToggleTabManager.TabItem CreateInteractiveToggle(Transform p, string t, bool startOn, float height, ToggleGroup group)
         {
             GameObject go = CreatePanel(p, "Toggle_" + t, Theme.BgPanel);
             var LE = go.GetComponent<LayoutElement>();
@@ -468,7 +470,7 @@ namespace RobotSim.Editor
             txt.alignment = TextAlignmentOptions.Center;
 
             // Return references for the visual manager to handle
-            return new RobotSim.UI.ToggleTabManager.TabItem
+            return new ToggleTabManager.TabItem
             {
                 Toggle = toggle,
                 Background = img,
@@ -632,13 +634,13 @@ namespace RobotSim.Editor
             var tGroup = toggleArea.GetComponent<ToggleGroup>();
 
             // Visual Manager 추가
-            var visualManager = toggleArea.AddComponent<RobotSim.UI.ToggleTabManager>();
+            var visualManager = toggleArea.AddComponent<ToggleTabManager>();
 
             // Toggle Height 18
             var t1 = CreateInteractiveToggle(toggleArea.transform, "Handeye", true, 18, tGroup);
             var t2 = CreateInteractiveToggle(toggleArea.transform, "Birdeye", false, 18, tGroup);
 
-            visualManager.Tabs = new List<RobotSim.UI.ToggleTabManager.TabItem> { t1, t2 };
+            visualManager.Tabs = new List<ToggleTabManager.TabItem> { t1, t2 };
             visualManager.Initialize(); // Initialize visuals immediately
 
             // --- C. 하단 버튼 영역 (Footer) ---
@@ -658,7 +660,7 @@ namespace RobotSim.Editor
             //outline.effectDistance = new Vector2(1, -1);
 
             //// Drag Handler
-            modal.AddComponent<RobotSim.UI.DragWindow>();
+            modal.AddComponent<DragWindow>();
             modal.SetActive(false);
         }
 

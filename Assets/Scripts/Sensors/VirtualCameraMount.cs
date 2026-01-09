@@ -1,6 +1,7 @@
 using UnityEngine;
 
 using RobotSim.Robot;
+using RobotSim.ROS;
 using System.Collections.Generic;
 
 namespace RobotSim.Sensors
@@ -101,6 +102,10 @@ namespace RobotSim.Sensors
                         }
                     }
                 }
+
+                // [추가] ROS상에서의 충돌 정보 동기화 (MoveIt)
+                var collisionPub = GetComponent<AttachableCollisionObjectPublisher>();
+                collisionPub?.Synchronize(mode);
 
                 // [추가] 모드 변경 시 데이터 초기화
                 ClearAllData();

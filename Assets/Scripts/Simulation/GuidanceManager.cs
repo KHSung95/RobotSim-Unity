@@ -18,7 +18,7 @@ namespace RobotSim.Simulation
     {
 
         [Header("References")]
-        public VirtualCameraMount CamMount; // Replaces PCG
+        public VirtualCameraMount CamMount;
 
         public MoveRobotToPoseClient Mover;
         public RobotStateProvider RobotState;
@@ -116,8 +116,7 @@ namespace RobotSim.Simulation
             // 3. Send relative Master to ROS for future Comparisons
             if (_analysis != null && _masterPoints_TCP.Count > 0)
             {
-                PointCloud2 cloudMsg = _masterPoints_TCP.ToPointCloud2();
-                _analysis.SendAnalysisRequest("SET_MASTER", 0, cloudMsg, (res) =>
+                _analysis.SendAnalysisRequest("SET_MASTER", 0, _masterPoints_TCP.ToPointCloud2(), (res) =>
                 {
                     if (res.success) Debug.Log("[GuidanceManager] TCP-Relative Master Cloud Set on ROS.");
                     else Debug.LogError("[GuidanceManager] Failed to set Master Cloud on ROS.");
@@ -208,6 +207,22 @@ namespace RobotSim.Simulation
             });
         }
 
+        [ContextMenu("Sync Scene Collision Objects")]
+        public void SyncSceneToRos()
+        {
+            var publishers = FindObjectsByType<CollisionObjectPublisher>(FindObjectsSortMode.None);
+            foreach (var pub in publishers) pub.PublishNow();
+            
+            // 추후 여러 attachables가 존재한다면 별도의 클래스로 구현 필요
+            var attachables = FindObjectsByType<AttachableCollisionObjectPublisher>(FindObjectsSortMode.None);
+            foreach (var pub in attachables)
+            {
+                if (pub != null && CamMount != null) pub.Synchronize(CamMount.MountType);
+            }
+
+            Debug.Log($"[GuidanceManager] Synced {publishers.Length} collision objects and {attachables.Length} tools to ROS.");
+        }
+
         [ContextMenu("Run Guidance (Service)")]
         public void RunGuidance()
         {
@@ -216,6 +231,9 @@ namespace RobotSim.Simulation
                 Debug.LogError("[GuidanceManager] Missing dependencies.");
                 return;
             }
+
+            // Sync Scene Objects before planning for safety
+            SyncSceneToRos();
 
             if (CamMount.MasterPoints.Count == 0)
             {

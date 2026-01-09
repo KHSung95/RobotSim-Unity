@@ -4,6 +4,7 @@ using RobotSim.Robot;
 
 namespace RobotSim.Control
 {
+    [RequireComponent(typeof(TargetJointPublisher))]
     /// <summary>
     /// Handles robot resetting to a specific joint configuration when 'R' is pressed.
     /// Requirements: 
@@ -14,7 +15,6 @@ namespace RobotSim.Control
     {
         [Header("References")]
         public TargetJointPublisher JointPublisher;
-        public RobotStateProvider StateProvider;
 
         // Hardcoded Reset Position (from user request)
         // Unity Degrees: [-90.2, -120.2, 144.7, -20.0, 91.0, 0.8]
@@ -26,10 +26,6 @@ namespace RobotSim.Control
         private void Start()
         {
             if (JointPublisher == null) JointPublisher = GetComponent<TargetJointPublisher>();
-            if (JointPublisher == null) JointPublisher = GetComponentInParent<TargetJointPublisher>();
-            
-            if (StateProvider == null) StateProvider = GetComponent<RobotStateProvider>();
-            if (StateProvider == null) StateProvider = GetComponentInParent<RobotStateProvider>();
         }
 
         public void TriggerReset()

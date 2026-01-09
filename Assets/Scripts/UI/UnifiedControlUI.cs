@@ -35,7 +35,7 @@ namespace RobotSim.UI
 
         // Operation References
         private Button _captureMasterBtn;
-        private Button _captureBtn, _guidanceBtn;
+        private Button _captureBtn, _guidanceBtn, _syncBtn;
 
         // Common References
         private Button _eStopBtn;
@@ -95,6 +95,7 @@ namespace RobotSim.UI
                 {
                     _captureBtn = FindUISub<Button>(_operationModule, "Capture");
                     _guidanceBtn = FindUISub<Button>(_operationModule, "Guidance");
+                    _syncBtn = FindUISub<Button>(_operationModule, "Sync");
                 }
                 _masterModule = Sidebar.transform.FindDeepChild("MASTER MODE_Module")?.gameObject;
                 if (_masterModule != null)
@@ -149,6 +150,7 @@ namespace RobotSim.UI
                 
                 _captureBtn?.onClick.AddListener(() => Guidance?.AnalyzeScene());
                 _guidanceBtn?.onClick.AddListener(() => Guidance?.RunGuidance());
+                _syncBtn?.onClick.AddListener(() => Guidance?.SyncSceneToRos());
 
                 _pointViewToggle?.onValueChanged.AddListener(v => {
                     Guidance?.SetPointCloudVisible(v);

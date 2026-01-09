@@ -13,7 +13,7 @@ GameObject:
   - component: {fileID: 2855357773384159439}
   - component: {fileID: 702235211465604543}
   - component: {fileID: 8133013232631558044}
-  - component: {fileID: 1666504825116702259}
+  - component: {fileID: 3287797281447903648}
   m_Layer: 0
   m_Name: Cube
   m_TagString: Untagged
@@ -124,7 +124,7 @@ MonoBehaviour:
   Serializer: 1
   protocol: 0
   RosBridgeServerUrl: ws://localhost:9090
---- !u!114 &1666504825116702259
+--- !u!114 &3287797281447903648
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -133,17 +133,18 @@ MonoBehaviour:
   m_GameObject: {fileID: 1987795762680027024}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5b1f30dacbc25794e81777e6ae64dcfc, type: 3}
+  m_Script: {fileID: 11500000, guid: 5b4f6258dc327cd4da2543412ea113d7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Topic: 
-  ToolId: 
-  AttachLinkName: tool0
+  CameraId: camera
+  WorldFrame: base_link
+  CollisionObjectTopic: /collision_object
+  AttachedCollisionObjectTopic: /attached_collision_object
+  StateProvider: {fileID: 0}
+  BoxSize: {x: 0.05, y: 0.05, z: 0.1}
   TouchLinks:
-  - wrist_3_link
   - tool0
-  AttachLinkTransform: {fileID: 0}
-  shapeType: 0
+  - wrist_3_link
 --- !u!1 &2918419671596022032
 GameObject:
   m_ObjectHideFlags: 0

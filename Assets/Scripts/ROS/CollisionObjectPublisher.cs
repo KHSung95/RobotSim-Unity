@@ -1,10 +1,13 @@
 using UnityEngine;
-using RosSharp.RosBridgeClient.MessageTypes.Moveit;
-using RosSharp.RosBridgeClient.MessageTypes.Geometry;
-using RosSharp.RosBridgeClient.MessageTypes.Shape;
+
+using RosSharp;
 using RosSharp.RosBridgeClient.MessageTypes.Std;
+using RosSharp.RosBridgeClient.MessageTypes.Shape;
+using RosSharp.RosBridgeClient.MessageTypes.Moveit;
 
 using RosPose = RosSharp.RosBridgeClient.MessageTypes.Geometry.Pose;
+using RosPoint = RosSharp.RosBridgeClient.MessageTypes.Geometry.Point;
+using RosQuaternion = RosSharp.RosBridgeClient.MessageTypes.Geometry.Quaternion;
 
 namespace RosSharp.RosBridgeClient
 {
@@ -73,7 +76,7 @@ namespace RosSharp.RosBridgeClient
             // and ignores any time synchronization diffs between Unity and ROS PC.
             // Also fixes issues when use_sim_time is inconsistent.
             // Note: ROS2 Header uses BuiltinInterfaces.Time, not Std.Time
-            message.header.stamp = new RosSharp.RosBridgeClient.MessageTypes.BuiltinInterfaces.Time(0, 0); 
+            message.header.stamp = new MessageTypes.BuiltinInterfaces.Time(0, 0); 
             message.operation = operation;
 
             if (operation == 0) // ADD or MOVE
@@ -163,35 +166,35 @@ namespace RosSharp.RosBridgeClient
 
         private void UpdatePose()
         {
-            UnityEngine.Vector3 unityPos;
-            UnityEngine.Quaternion unityRot;
+            Vector3 pos;
+            Quaternion rot;
 
             if (ReferenceFrame != null)
             {
-                unityPos = ReferenceFrame.InverseTransformPoint(transform.position);
-                unityRot = UnityEngine.Quaternion.Inverse(ReferenceFrame.rotation) * transform.rotation;
+                pos = ReferenceFrame.InverseTransformPoint(transform.position);
+                rot = Quaternion.Inverse(ReferenceFrame.rotation) * transform.rotation;
             }
             else
             {
-                unityPos = transform.localPosition;
-                unityRot = transform.localRotation;
+                pos = transform.localPosition;
+                rot = transform.localRotation;
             }
+            pos = pos.Unity2Ros();
+            rot = rot.Unity2Ros();
 
             // Convert to ROS Coordinate System (Right Handed)
-            message.primitive_poses[0] = new RosSharp.RosBridgeClient.MessageTypes.Geometry.Pose
+            message.primitive_poses[0] = new RosPose
             {
-                position = new Point
+                position = new RosPoint
                 {
-                    x = unityPos.z,
-                    y = -unityPos.x,
-                    z = unityPos.y
+                    x = pos.x, y = pos.y, z = pos.z
                 },
-                orientation = new RosSharp.RosBridgeClient.MessageTypes.Geometry.Quaternion
+                orientation = new RosQuaternion
                 {
-                    x = -unityRot.z,
-                    y = unityRot.x,
-                    z = -unityRot.y,
-                    w = unityRot.w
+                    x = rot.x,
+                    y = rot.y,
+                    z = rot.z,
+                    w = rot.w
                 }
             };
         }
